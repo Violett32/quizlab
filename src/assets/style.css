@@ -1,0 +1,238 @@
+/* сброс стилей */
+
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  font-family: var(--font-family);
+  font-size: var(--font-size-body);
+  color: var(--color-text);
+  background-color: var(--color-bg);
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+ul, ol {
+  list-style: none;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+  border: none;
+  outline: none;
+  background: none;
+}
+
+button {
+  cursor: pointer;
+}
+
+/* переменные */
+
+:root {
+  /* цвета */
+  --color-primary: #5C52AD;
+  --color-primary-dark: #2E3260;
+  --color-primary-light: #E1E5F8;
+  --color-text: #2D3748;
+  --color-text-light: #8896A6;
+  --color-bg: #FFFFFC;
+  --color-bg2: #F7FEFF;
+  --color-accent1: #3E7C8B;
+  --color-accent2: #904441;
+  --color-accent: #FFA14E;
+
+  /* типографика */
+  --font-family: 'Roboto', sans-serif;
+  --font-size-h1: 36px;
+  --font-size-h2: 30px;
+  --font-size-h3: 20px;
+  --font-size-body: 16px;
+  --font-size-small: 13px;
+  --font-size-btn: 20px;
+  --font-weight-btn: 300;
+  --font-family-btn: var(--font-family);
+
+  /* типографика — мобильная */
+  --font-size-h1-mob: 20px;
+  --font-size-h2-mob: 18px;
+  --font-size-h3-mob: 16px;
+  --font-size-body-mob: 14px;
+  --font-size-btn-mob: 16px;
+
+  /* отступы */
+  --padding-page-top: 60px;
+  --padding-section: 52px;
+  --padding-header-content: 28px;
+  --padding-content-block: 20px;
+  --padding-group-item: 12px;
+
+  /* отступы — мобильные */
+  --padding-page-top-mob: 32px;
+  --padding-section-mob: 28px;
+  --padding-header-content-mob: 8px;
+  --padding-content-block-mob: 16px;
+  --padding-group-item-mob: 8px;
+
+  /* радиусы */
+  --radius-btn: 10px;
+
+  /* неактивное состояние */
+  --color-disabled-bg: var(--color-primary-light);
+  --color-disabled-text: #a0a0b0;
+}
+
+/* контейнер */
+
+.container {
+  max-width: 1237px;
+  margin: 0 auto;
+  padding: 0;
+}
+
+/* кнопки */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-family-btn);
+  font-weight: var(--font-weight-btn);
+  border-radius: var(--radius-btn);
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.btn:disabled,
+.btn.disabled {
+  cursor: not-allowed;
+}
+
+/* 1. Большая (290x50) — основная фиолетовая */
+.btn-lg {
+  width: 290px;
+  height: 50px;
+  font-size: var(--font-size-btn);
+  background: var(--color-primary);
+  color: var(--color-bg2);
+}
+
+.btn-lg:hover {
+  background: var(--color-primary-dark);
+}
+
+.btn-lg:disabled,
+.btn-lg.disabled {
+  background: transparent;
+  border: 1px solid var(--color-primary-light);
+  color: var(--color-text-light);
+}
+
+
+/* 2. Маленькая (186x42) — светлая */
+.btn-sm {
+  width: 186px;
+  height: 42px;
+  font-size: var(--font-size-body);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.btn-sm:hover {
+  background: var(--color-primary);
+  color: var(--color-bg2);
+}
+
+.btn-sm:disabled,
+.btn-sm.disabled {
+  background: transparent;
+  border: 1px solid var(--color-disabled-text);
+  color: var(--color-disabled-text);
+}
+
+/* 2а. Маленькая инвертированная (для хедера) */
+.btn-sm--inv {
+  background: var(--color-primary);
+  color: var(--color-bg2);
+}
+
+.btn-sm--inv:hover {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+/* 4. Мобильная (200x36) */
+.btn-mob {
+  width: 200px;
+  height: 36px;
+  font-size: var(--font-size-btn-mob);
+  background: var(--color-primary);
+  color: var(--color-bg2);
+}
+
+.btn-mob:hover {
+  background: var(--color-primary-dark);
+}
+
+.btn-mob:disabled,
+.btn-mob.disabled {
+  background: transparent;
+  border: 1px solid var(--color-primary-light);
+  color: var(--color-text-light);
+}
+
+/* 3. Текстовая кнопка с иконкой */
+.btn-text {
+  background: none;
+  color: var(--color-primary);
+  font-size: var(--font-size-body);
+  gap: 8px;
+}
+
+.btn-text:hover {
+  opacity: 0.7;
+}
+
+/* Мобилка */
+@media (max-width: 767px) {
+  .container {
+    padding: 0 20px;
+  }
+
+  .btn-lg,
+  .btn-sm {
+    width: 200px;
+    height: 36px;
+    font-size: var(--font-size-btn-mob);
+  }
+}
