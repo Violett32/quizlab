@@ -190,7 +190,7 @@ const onHomeFromSave = (settings) => {
             class="create-quiz__add-btn create-quiz__add-btn--question"
             @click="showQTypeModal = true"
           >
-            <img src="@/assets/icons/add.svg" alt="" class="create-quiz__add-btn-icon">
+            <img src="@/assets/icons/add-btn.svg" alt="" class="create-quiz__add-btn-icon">
             Вопрос
           </button>
         </div>
@@ -208,7 +208,7 @@ const onHomeFromSave = (settings) => {
           </div>
 
           <button type="button" class="create-quiz__add-btn">
-            <img src="@/assets/icons/add.svg" alt="" class="create-quiz__add-btn-icon">
+            <img src="@/assets/icons/add-btn.svg" alt="" class="create-quiz__add-btn-icon">
             Файл
           </button>
 
@@ -284,6 +284,7 @@ const onHomeFromSave = (settings) => {
 
     <div class="create-quiz__actions">
       <button type="button" class="btn btn-lg" @click="openSaveModal">Сохранить квиз</button>
+      <button type="button" class="btn btn-lg create-quiz__delete-q" @click="removeQuestion(activeQuestion.id)">Удалить вопрос</button>
     </div>
 
     <QuestionTypeModal
@@ -671,5 +672,205 @@ const onHomeFromSave = (settings) => {
   display: flex;
   justify-content: center;
   margin-top: 40px;
+}
+
+.create-quiz__delete-q {
+  display: none;
+}
+
+/* Мобилка */
+@media (max-width: 767px) {
+  .create-quiz {
+    padding-top: 0;
+    padding-bottom: var(--padding-section-mob);
+  }
+
+  .create-quiz__banner {
+    max-width: none;
+    margin: 0;
+    border-radius: 0;
+    overflow: visible;
+  }
+
+  .create-quiz__banner-bg {
+    display: none;
+  }
+
+  .create-quiz__banner-content {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .create-quiz__left-panel {
+    background: var(--color-bg2);
+    border-radius: 0;
+    padding: 0;
+    counter-reset: question;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "name name"
+      "list btn";
+    align-items: center;
+  }
+
+  .create-quiz__name {
+    grid-area: name;
+    background: var(--color-accent);
+    padding: calc(75px + 14px) 20px 14px;
+    font-size: var(--font-size-body-mob);
+    font-weight: 700;
+  }
+
+  .create-quiz__q-list {
+    grid-area: list;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    padding: 16px 8px 16px 20px;
+    gap: 4px;
+    margin-top: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    min-width: 0;
+  }
+
+  .create-quiz__q-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .create-quiz__q-row {
+    width: 32px;
+    height: 40px;
+    background: var(--color-text-light);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    counter-increment: question;
+    flex-shrink: 0;
+  }
+
+  .create-quiz__q-row:has(.create-quiz__q-label--active) {
+    background: var(--color-accent);
+  }
+
+  .create-quiz__q-label {
+    font-size: 0;
+    color: transparent;
+    max-width: none;
+    width: auto;
+    overflow: visible;
+    word-break: normal;
+    display: block;
+    -webkit-line-clamp: unset;
+  }
+
+  .create-quiz__q-label::before {
+    content: counter(question);
+    font-size: var(--font-size-body-mob);
+    color: var(--color-bg2);
+    font-weight: 700;
+  }
+
+  .create-quiz__q-delete {
+    display: none;
+  }
+
+  .create-quiz__right-side {
+    background: var(--color-primary-dark);
+    border-radius: 16px;
+    padding: 20px;
+    margin: 20px 20px 0;
+  }
+
+  .create-quiz__q-wrap {
+    max-width: none;
+    padding: 16px;
+    min-height: 120px;
+  }
+
+  .create-quiz__q-input {
+    max-width: none;
+    font-size: var(--font-size-body-mob);
+    min-height: 40px;
+  }
+
+  .create-quiz__add-btn {
+    font-size: var(--font-size-btn-mob);
+    margin-top: 12px;
+    gap: 0;
+  }
+
+  .create-quiz__add-btn--question {
+    grid-area: btn;
+    padding: 0 20px;
+    margin: 0;
+    align-self: center;
+    justify-self: end;
+  }
+
+  .create-quiz__add-btn-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .create-quiz__hint {
+    margin-top: 20px;
+    font-size: var(--font-size-body-mob);
+  }
+
+  .create-quiz__answers {
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 8px;
+    row-gap: 8px;
+    margin-top: 12px;
+  }
+
+  .answer-row {
+    padding: 10px 14px;
+    gap: 10px;
+  }
+
+  .answer-row__radio {
+    width: 22px;
+    height: 22px;
+  }
+
+  .answer-row__radio-check {
+    width: 14px;
+    height: 14px;
+  }
+
+  .answer-row__input,
+  .answer-row__add-text {
+    font-size: var(--font-size-body-mob);
+  }
+
+  .answer-delete__icon {
+    width: 22px;
+    height: 22px;
+  }
+
+  .create-quiz__open {
+    padding: 24px;
+    min-height: 180px;
+  }
+
+  .open-chip {
+    padding: 8px 14px;
+    font-size: var(--font-size-body-mob);
+  }
+
+  .create-quiz__actions {
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin-top: 20px;
+  }
+
+  .create-quiz__delete-q {
+    display: inline-flex;
+  }
 }
 </style>

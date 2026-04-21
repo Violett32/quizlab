@@ -261,4 +261,94 @@ const onQuestionTypeSelect = (type) => {
 .column__quiz-link {
   cursor: pointer;
 }
+
+@media (max-width: 900px) {
+  .columns {
+    grid-template-columns: 1fr;
+  }
+  .column__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Мобилка */
+@media (max-width: 767px) {
+  .create-bar {
+    height: auto;
+    padding: calc(75px + var(--padding-page-top-mob)) 20px 20px;
+    align-items: stretch;
+  }
+
+  .create-bar__inner {
+    padding: 0;
+    max-width: none;
+  }
+
+  .profile-hero {
+    width: auto;
+    margin: 20px 20px 32px;
+  }
+
+  .profile-hero__content {
+    padding: 24px 20px;
+    gap: 4px;
+    position: relative;
+    inset: auto;
+    z-index: 1;
+  }
+
+  .profile-hero__bg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 0;
+  }
+
+  .profile__photo {
+    width: 220px;
+    height: 220px;
+  }
+
+  .profile__photo-add {
+    width: 120px;
+    height: 120px;
+  }
+
+  .profile__name {
+    font-size: var(--font-size-h2-mob);
+  }
+
+  .profile__email,
+  .profile__role-id {
+    font-size: var(--font-size-body-mob);
+  }
+
+  .profile__logout {
+    margin-top: 16px;
+  }
+
+  .columns {
+    padding: 0 20px var(--padding-section-mob);
+    gap: 32px;
+  }
+
+  .column__title {
+    font-size: var(--font-size-h1-mob);
+  }
+
+  .column__desc {
+    font-size: var(--font-size-body-mob);
+  }
+
+  .column__desc br {
+    display: none;
+  }
+
+  .column__list,
+  .column__grid {
+    gap: 8px;
+  }
+}
 </style>

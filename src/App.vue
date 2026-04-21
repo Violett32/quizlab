@@ -100,6 +100,13 @@ onUnmounted(() => {
   z-index: 0;
 }
 
+@media (max-width: 767px) {
+  .bg-circle {
+    width: 280px;
+    height: 280px;
+  }
+}
+
 .app__content {
   position: relative;
   z-index: 1;

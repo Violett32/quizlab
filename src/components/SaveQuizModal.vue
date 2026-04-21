@@ -128,4 +128,44 @@ const goHome = () => {
   width: 360px;
   max-width: 100%;
 }
+
+/* Мобилка */
+@media (max-width: 767px) {
+  .save-quiz {
+    min-width: 0;
+  }
+
+  .save-quiz__title {
+    font-size: var(--font-size-h2-mob);
+    margin-bottom: 20px;
+  }
+
+  .save-quiz__fields {
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .save-quiz__input {
+    height: 48px;
+    border-radius: 12px;
+    font-size: var(--font-size-body-mob);
+  }
+
+  .save-quiz__check {
+    margin-bottom: 20px;
+  }
+
+  .save-quiz__check svg {
+    width: 140px;
+    height: 140px;
+  }
+
+  .save-quiz__actions {
+    gap: 8px;
+  }
+
+  .save-quiz__action {
+    width: 200px;
+  }
+}
 </style>

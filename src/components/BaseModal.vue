@@ -125,5 +125,20 @@ onUnmounted(() => {
     width: 20px;
     height: 20px;
   }
+
+  .modal__circle {
+    width: 100px;
+    height: 100px;
+  }
+
+  .modal__circle--tl {
+    top: -75px;
+    left: -50px;
+  }
+
+  .modal__circle--br {
+    bottom: -75px;
+    right: -50px;
+  }
 }
 </style>

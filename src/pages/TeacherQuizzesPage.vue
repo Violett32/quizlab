@@ -97,4 +97,30 @@ const goBack = () => {
   grid-template-columns: repeat(4, 1fr);
   gap: 12px;
 }
+
+/* Мобилка */
+@media (max-width: 767px) {
+  .quizzes-page {
+    padding-top: calc(75px + var(--padding-page-top-mob));
+  }
+
+  .quizzes-page__header {
+    gap: 4px;
+    margin-bottom: 20px;
+  }
+
+  .quizzes-page__back-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .quizzes-page__title {
+    font-size: var(--font-size-h1-mob);
+  }
+
+  .quizzes-page__grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
 </style>

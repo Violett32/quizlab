@@ -166,4 +166,54 @@ const goHome = () => {
   width: 24px;
   height: 24px;
 }
+
+/* Мобилка */
+@media (max-width: 767px) {
+  .publish {
+    min-width: 0;
+  }
+
+  .publish__title {
+    font-size: var(--font-size-h2-mob);
+    margin-bottom: 20px;
+  }
+
+  .publish__tabs {
+    margin-bottom: 16px;
+  }
+
+  .publish__tab {
+    font-size: var(--font-size-body-mob);
+    padding: 8px 12px;
+  }
+
+  .publish__field {
+    margin-bottom: 16px;
+  }
+
+  .publish__input {
+    height: 48px;
+    border-radius: 12px;
+    font-size: var(--font-size-body-mob);
+  }
+
+  .publish__check {
+    margin-bottom: 20px;
+  }
+
+  .publish__check svg {
+    width: 140px;
+    height: 140px;
+  }
+
+  .publish__code-btn {
+    font-size: var(--font-size-btn-mob);
+    margin-bottom: 12px;
+  }
+
+  .publish__copy-icon {
+    width: 18px;
+    height: 18px;
+  }
+}
 </style>

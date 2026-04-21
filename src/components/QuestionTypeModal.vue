@@ -84,4 +84,27 @@ const submit = () => {
   display: block;
   margin: 0 auto;
 }
+
+/* Мобилка */
+@media (max-width: 767px) {
+  .qtype {
+    min-width: 0;
+  }
+
+  .qtype__title {
+    font-size: var(--font-size-h2-mob);
+    margin-bottom: 20px;
+  }
+
+  .qtype__options {
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .qtype__option {
+    padding: 14px 16px;
+    border-radius: 12px;
+    font-size: var(--font-size-body-mob);
+  }
+}
 </style>

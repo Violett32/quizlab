@@ -174,4 +174,49 @@ const copyCode = () => {
   color: var(--color-text-light);
   cursor: not-allowed;
 }
+
+/* Мобилка */
+@media (max-width: 767px) {
+  .quiz-card {
+    width: 100%;
+    height: auto;
+    padding: 20px;
+    gap: 10px;
+  }
+
+  .quiz-card__title {
+    font-size: var(--font-size-h3-mob);
+  }
+
+  .quiz-card__meta {
+    font-size: var(--font-size-body-mob);
+  }
+
+  .quiz-card__icon--question {
+    width: 20px;
+    height: 20px;
+  }
+
+  .quiz-card__icon--time {
+    width: 18px;
+    height: 18px;
+  }
+
+  .quiz-card__until,
+  .quiz-card__status {
+    font-size: var(--font-size-body-mob);
+  }
+
+  .quiz-card__actions {
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .quiz-card__btn {
+    width: 200px;
+    max-width: 100%;
+    height: 36px;
+    font-size: var(--font-size-btn-mob);
+  }
+}
 </style>

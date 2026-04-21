@@ -92,4 +92,29 @@ const goBack = () => {
   flex-direction: column;
   gap: 12px;
 }
+
+/* Мобилка */
+@media (max-width: 767px) {
+  .results-page {
+    padding-top: calc(75px + var(--padding-page-top-mob));
+  }
+
+  .results-page__header {
+    gap: 4px;
+    margin-bottom: 20px;
+  }
+
+  .results-page__back-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .results-page__title {
+    font-size: var(--font-size-h1-mob);
+  }
+
+  .results-page__list {
+    gap: 8px;
+  }
+}
 </style>

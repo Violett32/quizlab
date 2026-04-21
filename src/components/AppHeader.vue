@@ -222,7 +222,7 @@ watch(() => route.fullPath, closeMenu)
     inset: 0;
     z-index: 50;
     background: var(--color-primary-dark);
-    padding: 24px 24px 32px;
+    padding: 12px 20px 32px;
     flex-direction: column;
   }
 

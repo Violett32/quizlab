@@ -324,4 +324,116 @@ const logout = () => {
     grid-template-columns: 1fr;
   }
 }
+
+/* Мобилка */
+@media (max-width: 767px) {
+  .join-bar {
+    height: auto;
+    padding: calc(75px + var(--padding-page-top-mob)) 20px 20px;
+    align-items: stretch;
+  }
+
+  .join-bar__form {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    gap: 12px 8px;
+    padding: 0;
+    max-width: none;
+  }
+
+  .join-bar__label {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    font-size: var(--font-size-h3-mob);
+    white-space: normal;
+    text-align: center;
+  }
+
+  .join-bar__input {
+    grid-column: 1;
+    grid-row: 2;
+    max-width: none;
+    height: 44px;
+    font-size: var(--font-size-body-mob);
+  }
+
+  .join-bar__submit {
+    grid-column: 2;
+    grid-row: 2;
+    width: 44px;
+    height: 44px;
+  }
+
+  .join-bar__arrow {
+    width: 36px;
+    height: 36px;
+  }
+
+  .profile-hero {
+    width: auto;
+    margin: 20px 20px 32px;
+  }
+
+  .profile-hero__content {
+    padding: 24px 20px;
+    gap: 4px;
+    position: relative;
+    inset: auto;
+    z-index: 1;
+  }
+
+  .profile-hero__bg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 0;
+  }
+
+  .profile__photo {
+    width: 220px;
+    height: 220px;
+  }
+
+  .profile__photo-add {
+    width: 120px;
+    height: 120px;
+  }
+
+  .profile__name {
+    font-size: var(--font-size-h2-mob);
+  }
+
+  .profile__email {
+    font-size: var(--font-size-body-mob);
+  }
+
+  .profile__role-id {
+    font-size: var(--font-size-body-mob);
+  }
+
+  .profile__logout {
+    margin-top: 16px;
+  }
+
+  .columns {
+    padding: 0 20px var(--padding-section-mob);
+    gap: 32px;
+  }
+
+  .column__title {
+    font-size: var(--font-size-h1-mob);
+  }
+
+  .column__desc {
+    font-size: var(--font-size-body-mob);
+  }
+
+  .column__list,
+  .column__grid {
+    gap: 8px;
+  }
+}
 </style>

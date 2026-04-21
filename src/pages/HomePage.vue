@@ -2,17 +2,21 @@
 import { ref, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import LoginModal from '@/components/LoginModal.vue'
+import RegisterModal from '@/components/RegisterModal.vue'
 
 const route = useRoute()
 const router = useRouter()
 const showLogin = ref(false)
+const showRegister = ref(false)
 
 const syncFromQuery = () => {
   if (route.query.login) showLogin.value = true
+  if (route.query.register) showRegister.value = true
 }
 
 onMounted(syncFromQuery)
 watch(() => route.query.login, syncFromQuery)
+watch(() => route.query.register, syncFromQuery)
 
 const closeLogin = () => {
   showLogin.value = false
@@ -21,6 +25,20 @@ const closeLogin = () => {
     router.replace({ query: rest })
   }
 }
+
+const closeRegister = () => {
+  showRegister.value = false
+  if (route.query.register) {
+    const { register, ...rest } = route.query
+    router.replace({ query: rest })
+  }
+}
+
+const switchToLogin = () => {
+  closeRegister()
+  showLogin.value = true
+}
+
 </script>
 
 <template>
@@ -91,6 +109,7 @@ const closeLogin = () => {
   </section>
 
   <LoginModal v-if="showLogin" @close="closeLogin" />
+  <RegisterModal v-if="showRegister" @close="closeRegister" @switch-to-login="switchToLogin" />
 </template>
 
 <style scoped>
@@ -274,7 +293,7 @@ const closeLogin = () => {
   .hero__content {
     position: relative;
     z-index: 1;
-    padding: calc(75px + 32px) 20px 36px;
+    padding: calc(75px + var(--padding-page-top-mob)) 20px 36px;
     justify-content: flex-start;
   }
 

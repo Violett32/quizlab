@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import BaseModal from './BaseModal.vue'
 
-const emit = defineEmits(['close', 'switch-to-register'])
+const emit = defineEmits(['close'])
 
 const email = ref('')
 const password = ref('')

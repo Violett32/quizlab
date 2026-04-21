@@ -115,4 +115,58 @@ const displayTitle = computed(() => {
   border: 1px solid var(--color-primary-light);
   color: var(--color-text-light);
 }
+
+/* Мобилка */
+@media (max-width: 767px) {
+  .result-item {
+    grid-template-columns: auto auto;
+    justify-content: center;
+    row-gap: 8px;
+    column-gap: 16px;
+    padding: 16px 20px;
+    max-width: none;
+    font-size: var(--font-size-body-mob);
+  }
+
+  .result-item__title {
+    grid-column: 1 / -1;
+    text-align: center;
+    white-space: normal;
+    font-size: var(--font-size-body-mob);
+    font-weight: 700;
+  }
+
+  .result-item__score {
+    font-size: var(--font-size-body-mob);
+    justify-self: end;
+  }
+
+  .result-item__duration {
+    font-size: var(--font-size-body-mob);
+    justify-self: start;
+  }
+
+  .result-item__icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .result-item__icon--person {
+    width: 16px;
+    height: 16px;
+  }
+
+  .result-item--full {
+    grid-template-columns: auto auto;
+  }
+
+  .result-item--full .result-item__duration {
+    margin-left: 0;
+  }
+
+  .result-item--full .result-item__action {
+    grid-column: 1 / -1;
+    justify-self: center;
+  }
+}
 </style>

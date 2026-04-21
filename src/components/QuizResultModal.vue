@@ -57,4 +57,29 @@ const emit = defineEmits(['close', 'home', 'review'])
   width: 360px;
   max-width: 100%;
 }
+
+/* Мобилка */
+@media (max-width: 767px) {
+  .result {
+    min-width: 0;
+  }
+
+  .result__title {
+    font-size: var(--font-size-h2-mob);
+    margin-bottom: 12px;
+  }
+
+  .result__score {
+    font-size: var(--font-size-h1-mob);
+    margin-bottom: 20px;
+  }
+
+  .result__actions {
+    gap: 8px;
+  }
+
+  .result__action {
+    width: 200px;
+  }
+}
 </style>

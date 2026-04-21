@@ -175,4 +175,69 @@ const goBack = () => {
   font-size: var(--font-size-h3);
   font-weight: 500;
 }
+
+/* Мобилка */
+@media (max-width: 767px) {
+  .teacher-results {
+    padding-top: calc(75px + var(--padding-page-top-mob));
+  }
+
+  .teacher-results__header {
+    gap: 4px;
+    margin-bottom: 20px;
+  }
+
+  .teacher-results__back-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .teacher-results__title {
+    font-size: var(--font-size-h1-mob);
+  }
+
+  .teacher-results__columns {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .teacher-results__quiz-name {
+    font-size: var(--font-size-h3-mob);
+    margin-bottom: 12px;
+  }
+
+  .teacher-results__list {
+    gap: 8px;
+  }
+
+  .student-row {
+    grid-template-columns: auto auto;
+    justify-content: center;
+    column-gap: 16px;
+    row-gap: 4px;
+    padding: 14px 20px;
+  }
+
+  .student-row__name {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    font-size: var(--font-size-body-mob);
+    text-align: center;
+    font-weight: 700;
+  }
+
+  .student-row__score {
+    grid-column: 1;
+    grid-row: 2;
+    font-size: var(--font-size-body-mob);
+  }
+
+  .student-row__isu {
+    grid-column: 2;
+    grid-row: 2;
+    font-size: var(--font-size-body-mob);
+    margin-right: 0;
+    color: var(--color-text);
+  }
+}
 </style>

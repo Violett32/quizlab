@@ -1,8 +1,14 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
+
+onMounted(() => {
+  if (window.innerWidth < 768) {
+    router.replace({ path: '/', query: { register: '1' } })
+  }
+})
 
 const role = ref('teacher') // 'teacher' | 'student'
 const fullName = ref('')

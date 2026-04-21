@@ -154,6 +154,23 @@ onUnmounted(() => {
       <h2 class="take-quiz__top-title">{{ quiz.title }}</h2>
     </section>
 
+    <div class="take-quiz__q-nav">
+      <div class="take-quiz__pills">
+        <button
+          v-for="(q, i) in quiz.questions"
+          :key="q.id"
+          type="button"
+          class="take-quiz__pill"
+          :class="{ 'take-quiz__pill--active': i === currentIndex }"
+          @click="currentIndex = i"
+        >{{ i + 1 }}</button>
+      </div>
+      <div v-if="!isReviewMode" class="take-quiz__timer-badge">
+        <img src="@/assets/icons/time.svg" alt="" class="take-quiz__timer-badge-icon">
+        {{ timerDisplay }}
+      </div>
+    </div>
+
     <section class="take-quiz__banner">
       <img src="@/assets/images/hero-bg.png" alt="" class="take-quiz__banner-bg">
       <div class="take-quiz__banner-content">
@@ -499,5 +516,163 @@ onUnmounted(() => {
 .take-quiz__open-chip--input:focus,
 .take-quiz__open-chip--input:not(:placeholder-shown) {
   background: var(--color-accent);
+}
+
+.take-quiz__q-nav {
+  display: none;
+}
+
+/* Мобилка */
+@media (max-width: 767px) {
+  .take-quiz__top-bar {
+    height: auto;
+    padding: calc(75px + 14px) 20px 14px;
+  }
+
+  .take-quiz__top-title {
+    font-size: var(--font-size-body-mob);
+    font-weight: 700;
+  }
+
+  .take-quiz__q-nav {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    padding: 12px 20px;
+    background: var(--color-bg2);
+  }
+
+  .take-quiz__pills {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    min-width: 0;
+  }
+
+  .take-quiz__pills::-webkit-scrollbar {
+    display: none;
+  }
+
+  .take-quiz__pill {
+    width: 32px;
+    height: 40px;
+    flex-shrink: 0;
+    background: var(--color-text-light);
+    border: none;
+    border-radius: 10px;
+    color: var(--color-bg2);
+    font-family: var(--font-family);
+    font-size: var(--font-size-body-mob);
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .take-quiz__pill--active {
+    background: var(--color-accent);
+  }
+
+  .take-quiz__timer-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    background: var(--color-accent);
+    border-radius: 10px;
+    font-size: var(--font-size-body-mob);
+    font-weight: 700;
+    color: var(--color-text);
+  }
+
+  .take-quiz__timer-badge-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .take-quiz__banner {
+    max-width: none;
+    margin: 0 20px;
+    border-radius: 16px;
+  }
+
+  .take-quiz__banner-bg {
+    display: none;
+  }
+
+  .take-quiz__banner-content {
+    padding: 20px;
+    background: var(--color-primary-dark);
+    border-radius: 16px;
+  }
+
+  .take-quiz__header {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .take-quiz__badge {
+    display: none;
+  }
+
+  .take-quiz__q-card {
+    max-width: none;
+    padding: 16px 20px;
+    min-height: 90px;
+  }
+
+  .take-quiz__q-text {
+    font-size: var(--font-size-body-mob);
+  }
+
+  .take-quiz__file {
+    margin-top: 12px;
+    font-size: var(--font-size-body-mob);
+  }
+
+  .take-quiz__hint {
+    margin-top: 20px;
+    font-size: var(--font-size-body-mob);
+  }
+
+  .take-quiz__answers {
+    margin-top: 12px;
+    gap: 8px;
+    max-width: none;
+  }
+
+  .take-quiz__answer {
+    grid-template-columns: 22px 1fr 22px;
+    padding: 10px 16px;
+    gap: 10px;
+    font-size: var(--font-size-body-mob);
+  }
+
+  .take-quiz__radio {
+    width: 22px;
+    height: 22px;
+  }
+
+  .take-quiz__radio-check {
+    width: 14px;
+    height: 14px;
+  }
+
+  .take-quiz__next {
+    margin-top: 20px;
+    margin-bottom: 20px;
+  }
+
+  .take-quiz__open {
+    padding: 20px;
+    min-height: 200px;
+  }
+
+  .take-quiz__open-chip {
+    padding: 8px 14px;
+    font-size: var(--font-size-body-mob);
+  }
 }
 </style>
