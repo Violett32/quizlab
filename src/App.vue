@@ -59,12 +59,14 @@ onUnmounted(() => {
 
 <template>
   <div class="app">
-    <div
-      v-for="(c, i) in circles"
-      :key="i"
-      class="bg-circle"
-      :style="{ top: c.top + 'px', [c.side]: c.offset + 'px' }"
-    ></div>
+    <template v-if="!hideChrome">
+      <div
+        v-for="(c, i) in circles"
+        :key="i"
+        class="bg-circle"
+        :style="{ top: c.top + 'px', [c.side]: c.offset + 'px' }"
+      ></div>
+    </template>
     <div class="app__content">
       <AppHeader v-if="!hideChrome" :role="userRole" @create="showCreateQuestion = true" />
       <router-view />
@@ -87,6 +89,7 @@ onUnmounted(() => {
 .app {
   position: relative;
   overflow: hidden;
+  min-height: 100vh;
 }
 
 .bg-circle {

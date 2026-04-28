@@ -6,7 +6,7 @@ import QuizCard from '@/components/QuizCard.vue'
 
 const router = useRouter()
 
-// TODO: заменить на данные из БД
+// заменить на данные из БД
 const user = ref({
   name: 'Бореева Виолетта',
   email: 'boreevaviola@gmail.com',

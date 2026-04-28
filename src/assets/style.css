@@ -18,6 +18,7 @@ html, body {
 html {
   font-size: 16px;
   scroll-behavior: smooth;
+  scrollbar-gutter: stable both-edges;
 }
 
 body {

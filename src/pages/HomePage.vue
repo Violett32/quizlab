@@ -229,7 +229,7 @@ const switchToLogin = () => {
 /* Features */
 .features {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 24px;
 }
 
@@ -249,9 +249,10 @@ const switchToLogin = () => {
 }
 
 .feature-card__img img {
-  width: 328px;
-  height: 307px;
-  max-width: none;
+  width: 100%;
+  max-width: 328px;
+  height: auto;
+  aspect-ratio: 328 / 307;
   object-fit: contain;
 }
 

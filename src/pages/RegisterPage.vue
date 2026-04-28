@@ -52,8 +52,6 @@ const submit = () => {
     </button>
 
     <div class="register__left">
-      <div class="register__left-blur register__left-blur--tl"></div>
-      <div class="register__left-blur register__left-blur--br"></div>
       <div class="register__left-inner">
         <h2 class="register__headline">Присоединяйтесь к <span class="register__brand">Quizlab</span></h2>
         <p class="register__subtext">
@@ -150,7 +148,6 @@ const submit = () => {
   inset: 0;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  background: var(--color-bg);
   z-index: 200;
   overflow: hidden;
 }
@@ -162,7 +159,7 @@ const submit = () => {
   bottom: -200px;
   left: -220px;
   width: calc(50% + 280px);
-  background: var(--color-primary-dark);
+  background: var(--color-primary-light);
   filter: blur(70px);
   pointer-events: none;
   z-index: 0;
@@ -188,7 +185,7 @@ const submit = () => {
   opacity: 0.6;
 }
 
-/* левая — тёмная */
+/* левая — иллюстрация и заголовок */
 .register__left {
   position: relative;
   z-index: 1;
@@ -211,18 +208,18 @@ const submit = () => {
 .register__headline {
   font-size: var(--font-size-h1);
   font-weight: 400;
-  color: var(--color-primary-light);
+  color: var(--color-text);
   margin: 0 0 28px;
 }
 
 .register__brand {
-  color: var(--color-primary-light);
+  color: var(--color-primary);
   font-weight: 600;
 }
 
 .register__subtext {
   font-size: var(--font-size-body);
-  color: var(--color-text-light);
+  color: var(--color-text);
   margin: 0 0 32px;
 }
 
