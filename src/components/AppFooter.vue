@@ -21,15 +21,8 @@ defineProps({
         </p>
       </div>
 
-      <div class="footer__right">
+      <div v-if="role !== 'guest'" class="footer__right">
         <div class="footer__col">
-          <p class="footer__heading">Контакты</p>
-          <div class="footer__links">
-            <a href="https://github.com" class="footer__link">Github</a>
-          </div>
-        </div>
-
-        <div v-if="role !== 'guest'" class="footer__col">
           <p class="footer__heading">Навигация</p>
           <div class="footer__links">
             <router-link :to="role === 'teacher' ? '/teacher/quizzes' : '/quizzes'" class="footer__link">Квизы</router-link>
