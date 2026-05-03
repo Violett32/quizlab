@@ -1,22 +1,52 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import QuizCard from '@/components/QuizCard.vue'
 import PublishModal from '@/components/PublishModal.vue'
+import EmptyState from '@/components/EmptyState.vue'
+import { loadTeacherQuizzes } from '@/api/teacher.js'
+import { apiFetch } from '@/api/client.js'
 
 const router = useRouter()
-const showPublish = ref(false)
 
-const quizzes = ref([
-  { id: 1, title: 'Знание языка Java', questions: 100, duration: '30 минут', openUntil: '10.08.26', status: 'open', code: '372937' },
-  { id: 2, title: 'Алгоритмы и структуры данных', questions: 40, duration: '40 минут', openUntil: '22.12.26', status: 'open', code: '372937' },
-  { id: 3, title: 'Знание языка Java', questions: 100, duration: '30 минут', openUntil: '10.08.26', status: 'open', code: '372937' },
-  { id: 4, title: 'Алгоритмы и структуры данных', questions: 40, duration: '40 минут', openUntil: '22.12.26', status: 'open', code: '372937' },
-  { id: 5, title: 'Операционные системы', questions: 20, duration: '20 минут', openUntil: '', status: 'closed', code: '' },
-  { id: 6, title: 'Дискретная математика', questions: 30, duration: '30 минут', openUntil: '', status: 'unpublished', code: '' },
-  { id: 7, title: 'Операционные системы', questions: 40, duration: '30 минут', openUntil: '', status: 'closed', code: '' },
-  { id: 8, title: 'Дискретная математика', questions: 30, duration: '30 минут', openUntil: '', status: 'unpublished', code: '' }
-])
+const quizzes = ref([])
+
+onMounted(async () => {
+  try {
+    quizzes.value = await loadTeacherQuizzes()
+  } catch (err) {
+    console.error('Failed to load quizzes:', err)
+  }
+})
+
+// Состояние публикации: id публикуемого квиза + пропы для модалки.
+const publishingId = ref(null)
+const publishShareCode = ref(null)
+const isPublishLoading = ref(false)
+const publishError = ref('')
+
+const startPublish = (id) => {
+  publishingId.value = id
+  publishShareCode.value = null
+  publishError.value = ''
+}
+
+const onPublish = async ({ deadline }) => {
+  publishError.value = ''
+  isPublishLoading.value = true
+  try {
+    const data = await apiFetch(
+      `/api/teacher/quizzes/${publishingId.value}/publish`,
+      { method: 'POST', body: { deadline: deadline || null } }
+    )
+    publishShareCode.value = data.share_code
+    quizzes.value = await loadTeacherQuizzes()
+  } catch (err) {
+    publishError.value = err.message || 'Не удалось опубликовать квиз'
+  } finally {
+    isPublishLoading.value = false
+  }
+}
 
 const goBack = () => {
   router.back()
@@ -32,7 +62,7 @@ const goBack = () => {
       <h1 class="quizzes-page__title">Мои квизы</h1>
     </div>
 
-    <div class="quizzes-page__grid">
+    <div v-if="quizzes.length" class="quizzes-page__grid">
       <QuizCard
         v-for="q in quizzes"
         :key="q.id"
@@ -43,11 +73,20 @@ const goBack = () => {
         :status="q.status"
         :mode="'teacher'"
         :code="q.code"
-        @publish="showPublish = true"
+        @publish="startPublish(q.id)"
+        @edit="router.push(`/create?edit=${q.id}`)"
       />
     </div>
+    <EmptyState v-else text="У вас пока нет квизов" />
 
-    <PublishModal v-if="showPublish" @close="showPublish = false" />
+    <PublishModal
+      v-if="publishingId"
+      :share-code="publishShareCode"
+      :is-loading="isPublishLoading"
+      :error="publishError"
+      @close="publishingId = null"
+      @publish="onPublish"
+    />
   </div>
 </template>
 

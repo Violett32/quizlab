@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import QuizCard from '@/components/QuizCard.vue'
+import EmptyState from '@/components/EmptyState.vue'
 
 const router = useRouter()
 
@@ -31,7 +32,7 @@ const goBack = () => {
       <h1 class="quizzes-page__title">Мои квизы</h1>
     </div>
 
-    <div class="quizzes-page__grid">
+    <div v-if="quizzes.length" class="quizzes-page__grid">
       <QuizCard
         v-for="q in quizzes"
         :key="q.id"
@@ -42,6 +43,7 @@ const goBack = () => {
         :status="q.status"
       />
     </div>
+    <EmptyState v-else text="У вас пока нет пройденных квизов" />
   </div>
 </template>
 

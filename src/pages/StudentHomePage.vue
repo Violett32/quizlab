@@ -1,20 +1,26 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import ResultItem from '@/components/ResultItem.vue'
 import QuizCard from '@/components/QuizCard.vue'
+import EmptyState from '@/components/EmptyState.vue'
+import { useAuth } from '@/composables/useAuth.js'
+import { apiFetch } from '@/api/client.js'
 
 const router = useRouter()
-
-// заменить на данные из БД
-const user = ref({
-  name: 'Бореева Виолетта',
-  email: 'boreevaviola@gmail.com',
-  isu: '367910',
-  avatar: null
-})
+const { user, logout: authLogout } = useAuth()
 
 const quizCode = ref('')
+const joinError = ref('')
+const isJoining = ref(false)
+
+// Если есть ошибка — её текст становится плейсхолдером (красным), сам инпут с красной рамкой.
+const codePlaceholder = computed(() => joinError.value || 'Например: 123456')
+
+// Стирает ошибку, когда пользователь начинает что-то печатать.
+watch(quizCode, () => {
+  if (joinError.value) joinError.value = ''
+})
 
 const results = ref([
   { title: 'Знание языка Java', duration: '10:34', score: '78/100' },
@@ -34,14 +40,30 @@ const quizzes = ref([
   { id: 4, title: 'Алгоритмы и структуры данных', questions: 120, duration: '40 минут', openUntil: '20.08.26', status: 'closed' }
 ])
 
-const joinQuiz = () => {
-  // Заглушка: любой код открывает демо-квиз
-  router.push('/quiz/1')
+const joinQuiz = async () => {
+  joinError.value = ''
+  if (!quizCode.value.trim()) {
+    joinError.value = 'Введите код квиза'
+    return
+  }
+
+  isJoining.value = true
+  try {
+    const data = await apiFetch('/api/student/join', {
+      method: 'POST',
+      body: { code: quizCode.value.trim() },
+    })
+    router.push(`/quiz/${data.quiz_id}`)
+  } catch (err) {
+    joinError.value = err.message || 'Не удалось подключиться'
+  } finally {
+    isJoining.value = false
+  }
 }
 
 const logout = () => {
-  // TODO: реальный logout
-  console.log('logout')
+  authLogout()
+  router.push('/')
 }
 </script>
 
@@ -53,8 +75,8 @@ const logout = () => {
         <input
           v-model="quizCode"
           type="text"
-          class="join-bar__input"
-          placeholder="Например: 123456"
+          :class="['join-bar__input', { 'join-bar__input--invalid': !!joinError }]"
+          :placeholder="codePlaceholder"
         />
         <button type="submit" class="join-bar__submit" aria-label="Отправить">
           <img src="@/assets/icons/arrow.svg" alt="" class="join-bar__arrow">
@@ -83,38 +105,44 @@ const logout = () => {
       <div class="column">
         <h3 class="column__title">Мои результаты</h3>
         <p class="column__desc">Отслеживайте свой прогресс: результаты, время прохождения и подробная статистика по каждому квизу.</p>
-        <div class="column__list">
-          <ResultItem
-            v-for="(r, i) in results"
-            :key="i"
-            :title="r.title"
-            :duration="r.duration"
-            :score="r.score"
-            :date="r.date"
-            class="column__result-link"
-            @click="router.push('/results')"
-          />
-        </div>
-        <button type="button" class="btn btn-lg column__more" @click="router.push('/results')">Посмотреть все</button>
+        <template v-if="results.length">
+          <div class="column__list">
+            <ResultItem
+              v-for="(r, i) in results"
+              :key="i"
+              :title="r.title"
+              :duration="r.duration"
+              :score="r.score"
+              :date="r.date"
+              class="column__result-link"
+              @click="router.push('/results')"
+            />
+          </div>
+          <button type="button" class="btn btn-lg column__more" @click="router.push('/results')">Посмотреть все</button>
+        </template>
+        <EmptyState v-else text="У вас пока нет результатов" />
       </div>
 
       <div class="column">
         <h3 class="column__title">Пройденные квизы</h3>
         <p class="column__desc">Список всех квизов, которые вы проходили. Доступные можно пройти повторно.</p>
-        <div class="column__grid">
-          <QuizCard
-            v-for="q in quizzes"
-            :key="q.id"
-            :title="q.title"
-            :questions="q.questions"
-            :duration="q.duration"
-            :open-until="q.openUntil"
-            :status="q.status"
-            class="column__quiz-link"
-            @click="router.push('/quizzes')"
-          />
-        </div>
-        <button type="button" class="btn btn-lg column__more" @click="router.push('/quizzes')">Посмотреть все</button>
+        <template v-if="quizzes.length">
+          <div class="column__grid">
+            <QuizCard
+              v-for="q in quizzes"
+              :key="q.id"
+              :title="q.title"
+              :questions="q.questions"
+              :duration="q.duration"
+              :open-until="q.openUntil"
+              :status="q.status"
+              class="column__quiz-link"
+              @click="router.push('/quizzes')"
+            />
+          </div>
+          <button type="button" class="btn btn-lg column__more" @click="router.push('/quizzes')">Посмотреть все</button>
+        </template>
+        <EmptyState v-else text="У вас пока нет пройденных квизов" />
       </div>
     </section>
   </div>
@@ -167,6 +195,14 @@ const logout = () => {
 
 .join-bar__input::placeholder {
   color: var(--color-text-light);
+}
+
+.join-bar__input--invalid {
+  outline: 2px solid var(--color-accent2);
+}
+
+.join-bar__input--invalid::placeholder {
+  color: var(--color-accent2);
 }
 
 .join-bar__submit {

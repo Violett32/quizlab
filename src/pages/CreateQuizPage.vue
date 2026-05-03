@@ -1,9 +1,10 @@
 <script setup>
-import { ref, computed, nextTick, watch } from 'vue'
+import { ref, computed, nextTick, watch, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import QuestionTypeModal from '@/components/QuestionTypeModal.vue'
 import SaveQuizModal from '@/components/SaveQuizModal.vue'
 import PublishModal from '@/components/PublishModal.vue'
+import { apiFetch } from '@/api/client.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -125,24 +126,151 @@ const openSaveModal = () => {
   showSaveModal.value = true
 }
 
-const persistQuiz = (settings) => {
-  console.log('save quiz', {
-    name: quizName.value,
-    questions: questions.value,
-    ...settings
-  })
+// Состояние сохранения и публикации.
+const quizId = ref(null)
+const isSaved = ref(false)
+const isSaveLoading = ref(false)
+const saveError = ref('')
+const shareCode = ref(null)
+const isPublishLoading = ref(false)
+const publishError = ref('')
+
+// Настройки, подгружаемые при редактировании. Прокидываем в SaveQuizModal как начальные.
+const initialDuration = ref('')
+const initialPassingScore = ref('')
+
+// Если в URL есть ?edit=<id> — режим редактирования.
+const editingId = computed(() => {
+  const v = Number(route.query.edit)
+  return Number.isFinite(v) && v > 0 ? v : null
+})
+
+// Ключ для бэкапа несохранённых изменений в localStorage.
+const draftKey = computed(() =>
+  editingId.value ? `quizlab-quiz-draft-${editingId.value}` : null
+)
+
+// Превращает массив вопросов из формы во внутренний формат с локальными id.
+function toFormQuestions(list) {
+  return list.map((q) => ({
+    id: nextQuestionId++,
+    type: q.type,
+    text: q.text || '',
+    answers: (q.answers || []).map((a) => ({
+      id: nextAnswerId++,
+      text: a.text || '',
+      correct: !!a.correct,
+    })),
+  }))
 }
 
-const onPublishFromSave = (settings) => {
-  persistQuiz(settings)
+onMounted(async () => {
+  if (!editingId.value) return
+  try {
+    const data = await apiFetch(`/api/teacher/quizzes/${editingId.value}`)
+    quizName.value = data.title
+    quizId.value = data.id
+    initialDuration.value = data.time_limit
+    initialPassingScore.value = data.passing_score
+    questions.value = toFormQuestions(data.questions)
+    activeQuestionId.value = questions.value[0]?.id
+  } catch (err) {
+    console.error('Failed to load quiz for editing:', err)
+    return
+  }
+
+  // Если в localStorage остался несохранённый черновик — накатываем его поверх серверных данных.
+  const stored = localStorage.getItem(draftKey.value)
+  if (stored) {
+    try {
+      const draft = JSON.parse(stored)
+      if (typeof draft.quizName === 'string') quizName.value = draft.quizName
+      if (Array.isArray(draft.questions)) {
+        questions.value = toFormQuestions(draft.questions)
+        activeQuestionId.value = questions.value[0]?.id
+      }
+    } catch {
+      // битый JSON — игнорируем
+    }
+  }
+
+  // Авто-бэкап изменений в localStorage. Срабатывает на любые правки в названии или вопросах.
+  watch(
+    [quizName, questions],
+    () => {
+      if (!draftKey.value) return
+      localStorage.setItem(
+        draftKey.value,
+        JSON.stringify({
+          quizName: quizName.value,
+          questions: questions.value.map((q) => ({
+            type: q.type,
+            text: q.text,
+            answers: q.answers.map((a) => ({ text: a.text, correct: a.correct })),
+          })),
+        })
+      )
+    },
+    { deep: true }
+  )
+})
+
+// Превращаем фронтовый questions[] в формат, который ждёт бэк.
+const buildPayload = (settings) => ({
+  title: quizName.value,
+  time_limit: settings.duration,
+  passing_score: settings.passingScore,
+  questions: questions.value.map((q) => ({
+    type: q.type,
+    text: q.text,
+    answers: q.answers.map((a) => ({ text: a.text, correct: a.correct })),
+  })),
+})
+
+const onSaveQuiz = async (settings) => {
+  saveError.value = ''
+  isSaveLoading.value = true
+  try {
+    const url = editingId.value
+      ? `/api/teacher/quizzes/${editingId.value}`
+      : '/api/teacher/quizzes'
+    const method = editingId.value ? 'PUT' : 'POST'
+    const data = await apiFetch(url, { method, body: buildPayload(settings) })
+    quizId.value = data.id ?? editingId.value
+    // После успешного сохранения чистим бэкап несохранённых изменений.
+    if (draftKey.value) localStorage.removeItem(draftKey.value)
+    isSaved.value = true // SaveQuizModal сам переключится на success-step через watch
+  } catch (err) {
+    saveError.value = err.message || 'Не удалось сохранить квиз'
+  } finally {
+    isSaveLoading.value = false
+  }
+}
+
+const onPublishFromSave = () => {
   showSaveModal.value = false
   showPublishModal.value = true
 }
 
-const onHomeFromSave = (settings) => {
-  persistQuiz(settings)
+const onHomeFromSave = () => {
   showSaveModal.value = false
   router.push('/teacher')
+}
+
+const onPublish = async ({ deadline }) => {
+  publishError.value = ''
+  isPublishLoading.value = true
+  try {
+    const data = await apiFetch(`/api/teacher/quizzes/${quizId.value}/publish`, {
+      method: 'POST',
+      body: { deadline: deadline || null },
+    })
+    shareCode.value = data.share_code
+  } catch (err) {
+    publishError.value = err.message || 'Не удалось опубликовать квиз'
+  } finally {
+    isPublishLoading.value = false
+  }
 }
 </script>
 
@@ -295,14 +423,24 @@ const onHomeFromSave = (settings) => {
 
     <SaveQuizModal
       v-if="showSaveModal"
+      :saved="isSaved"
+      :is-loading="isSaveLoading"
+      :error="saveError"
+      :initial-duration="initialDuration"
+      :initial-passing-score="initialPassingScore"
       @close="showSaveModal = false"
+      @save="onSaveQuiz"
       @publish="onPublishFromSave"
       @home="onHomeFromSave"
     />
 
     <PublishModal
       v-if="showPublishModal"
+      :share-code="shareCode"
+      :is-loading="isPublishLoading"
+      :error="publishError"
       @close="showPublishModal = false"
+      @publish="onPublish"
     />
   </div>
 </template>

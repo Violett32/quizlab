@@ -1,8 +1,10 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuth } from '@/composables/useAuth.js'
 
 const router = useRouter()
+const { register } = useAuth()
 
 onMounted(() => {
   if (window.innerWidth < 768) {
@@ -17,6 +19,16 @@ const isu = ref('')
 const password = ref('')
 const passwordConfirm = ref('')
 const showPassword = ref(false)
+const error = ref('')
+const isLoading = ref(false)
+const submitted = ref(false) // была ли уже попытка отправить форму
+
+// Подсветка пустых обязательных полей включается только после первой попытки сабмита.
+const invalidFullName = computed(() => submitted.value && !fullName.value.trim())
+const invalidEmail = computed(() => submitted.value && !email.value.trim())
+const invalidIsu = computed(() => submitted.value && !isu.value.trim())
+const invalidPassword = computed(() => submitted.value && !password.value)
+const invalidPasswordConfirm = computed(() => submitted.value && !passwordConfirm.value)
 
 const passwordHint = computed(() =>
   'Мин. 8 символов: цифры и латинские буквы'
@@ -26,19 +38,53 @@ const close = () => {
   router.push('/')
 }
 
-const submit = () => {
-  // TODO: реальная регистрация
-  console.log('register', {
-    role: role.value,
-    fullName: fullName.value,
-    email: email.value,
-    isu: isu.value,
-    password: password.value,
-  })
-  if (role.value === 'student') {
-    router.push('/student')
-  } else {
-    router.push('/teacher')
+function validatePassword(pw) {
+  if (pw.length < 8) return 'Пароль должен быть не короче 8 символов'
+  if (!/[0-9]/.test(pw)) return 'Пароль должен содержать хотя бы одну цифру'
+  if (!/[a-zA-Z]/.test(pw)) return 'Пароль должен содержать хотя бы одну латинскую букву'
+  return null
+}
+
+async function submit() {
+  error.value = ''
+  submitted.value = true
+
+  // Если есть пустые обязательные поля — не отправляем, пользователь видит подсветку.
+  if (
+    !fullName.value.trim() ||
+    !email.value.trim() ||
+    !isu.value.trim() ||
+    !password.value ||
+    !passwordConfirm.value
+  ) {
+    return
+  }
+
+  const pwError = validatePassword(password.value)
+  if (pwError) {
+    error.value = pwError
+    return
+  }
+
+  if (password.value !== passwordConfirm.value) {
+    error.value = 'Пароли не совпадают'
+    return
+  }
+
+  isLoading.value = true
+  try {
+    const user = await register({
+      email: email.value,
+      password: password.value,
+      isu: isu.value,
+      name: fullName.value,
+      role: role.value,
+    })
+    router.push(user.role === 'teacher' ? '/teacher' : '/student')
+  } catch (err) {
+    error.value = err.message || 'Не удалось зарегистрироваться'
+  } finally {
+    isLoading.value = false
   }
 }
 </script>
@@ -85,22 +131,37 @@ const submit = () => {
 
         <form class="register__form" @submit.prevent="submit">
           <div class="field">
-            <input v-model="fullName" type="text" class="field__input" placeholder="ФИО" />
+            <input
+              v-model="fullName"
+              type="text"
+              :class="['field__input', { 'field__input--invalid': invalidFullName }]"
+              placeholder="ФИО"
+            />
           </div>
 
           <div class="field">
-            <input v-model="email" type="text" class="field__input" placeholder="Email" />
+            <input
+              v-model="email"
+              type="text"
+              :class="['field__input', { 'field__input--invalid': invalidEmail }]"
+              placeholder="Email"
+            />
           </div>
 
           <div class="field">
-            <input v-model="isu" type="text" class="field__input" placeholder="ISU" />
+            <input
+              v-model="isu"
+              type="text"
+              :class="['field__input', { 'field__input--invalid': invalidIsu }]"
+              placeholder="ISU"
+            />
           </div>
 
           <div class="field">
             <input
               v-model="password"
               :type="showPassword ? 'text' : 'password'"
-              class="field__input field__input--with-icon"
+              :class="['field__input', 'field__input--with-icon', { 'field__input--invalid': invalidPassword }]"
               placeholder="Пароль"
             />
             <button
@@ -125,12 +186,16 @@ const submit = () => {
             <input
               v-model="passwordConfirm"
               :type="showPassword ? 'text' : 'password'"
-              class="field__input"
+              :class="['field__input', { 'field__input--invalid': invalidPasswordConfirm }]"
               placeholder="Подтверждение пароля"
             />
           </div>
 
-          <button type="submit" class="btn btn-lg register__submit">Зарегистрироваться</button>
+          <p v-if="error" class="register__error">{{ error }}</p>
+
+          <button type="submit" class="btn btn-lg register__submit" :disabled="isLoading">
+            {{ isLoading ? 'Регистрируем…' : 'Зарегистрироваться' }}
+          </button>
         </form>
 
         <p class="register__footer">
@@ -321,6 +386,11 @@ const submit = () => {
   outline: none;
 }
 
+.field__input--invalid,
+.field__input--invalid:focus {
+  border-color: var(--color-accent2);
+}
+
 .field__toggle {
   position: absolute;
   top: 50%;
@@ -347,6 +417,13 @@ const submit = () => {
 .register__submit {
   margin-top: 10px;
   align-self: center;
+}
+
+.register__error {
+  color: var(--color-accent2);
+  font-size: var(--font-size-body);
+  text-align: center;
+  margin: 0;
 }
 
 .register__footer {

@@ -1,17 +1,42 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import BaseModal from './BaseModal.vue'
+import { useAuth } from '@/composables/useAuth.js'
 
 const emit = defineEmits(['close'])
+const router = useRouter()
+const { login } = useAuth()
 
 const email = ref('')
 const password = ref('')
 const showPassword = ref(false)
 const remember = ref(false)
+const error = ref('')
+const isLoading = ref(false)
+const submitted = ref(false)
 
-const submit = () => {
-  // TODO: реальная авторизация
-  console.log('login', { email: email.value, password: password.value, remember: remember.value })
+const invalidEmail = computed(() => submitted.value && !email.value.trim())
+const invalidPassword = computed(() => submitted.value && !password.value)
+
+async function submit() {
+  error.value = ''
+  submitted.value = true
+
+  if (!email.value.trim() || !password.value) {
+    return
+  }
+
+  isLoading.value = true
+  try {
+    const user = await login({ email: email.value, password: password.value })
+    emit('close')
+    router.push(user.role === 'teacher' ? '/teacher' : '/student')
+  } catch (err) {
+    error.value = err.message || 'Не удалось войти'
+  } finally {
+    isLoading.value = false
+  }
 }
 </script>
 
@@ -24,9 +49,8 @@ const submit = () => {
         <input
           v-model="email"
           type="email"
-          class="field__input"
+          :class="['field__input', { 'field__input--invalid': invalidEmail }]"
           placeholder="Email"
-          required
         />
       </div>
 
@@ -34,9 +58,8 @@ const submit = () => {
         <input
           v-model="password"
           :type="showPassword ? 'text' : 'password'"
-          class="field__input field__input--with-icon"
+          :class="['field__input', 'field__input--with-icon', { 'field__input--invalid': invalidPassword }]"
           placeholder="Пароль"
-          required
         />
         <button
           type="button"
@@ -54,7 +77,11 @@ const submit = () => {
         </button>
       </div>
 
-      <button type="submit" class="btn btn-lg login__submit">Войти</button>
+      <p v-if="error" class="login__error">{{ error }}</p>
+
+      <button type="submit" class="btn btn-lg login__submit" :disabled="isLoading">
+        {{ isLoading ? 'Входим…' : 'Войти' }}
+      </button>
 
       <label class="checkbox">
         <input type="checkbox" v-model="remember" class="checkbox__input" />
@@ -114,6 +141,11 @@ const submit = () => {
   border-color: var(--color-primary-dark);
 }
 
+.field__input--invalid,
+.field__input--invalid:focus {
+  border-color: var(--color-accent2);
+}
+
 .field__toggle {
   position: absolute;
   top: 50%;
@@ -131,6 +163,13 @@ const submit = () => {
 
 .login__submit {
   margin-top: 12px;
+}
+
+.login__error {
+  color: var(--color-accent2);
+  font-size: var(--font-size-body);
+  text-align: center;
+  margin: 0;
 }
 
 .checkbox {

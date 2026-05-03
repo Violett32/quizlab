@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import AppHeader from './components/AppHeader.vue'
 import AppFooter from './components/AppFooter.vue'
 import QuestionTypeModal from './components/QuestionTypeModal.vue'
+import { useAuth } from '@/composables/useAuth.js'
 
 const appRouter = useRouter()
 const showCreateQuestion = ref(false)
@@ -16,8 +17,8 @@ const onQuestionTypeSelect = (type) => {
 const route = useRoute()
 const hideChrome = computed(() => route.meta?.hideChrome)
 
-// Потом заменим на реальную авторизацию
-const userRole = computed(() => route.meta?.role || 'guest')
+const { user, loadCurrentUser } = useAuth()
+const userRole = computed(() => user.value?.role || 'guest')
 
 // Параметры кругов
 const START_Y = 120          // первый круг под хедером
@@ -48,6 +49,9 @@ const updateCircles = () => {
 
 let observer
 onMounted(() => {
+  // Если в localStorage остался токен — спрашиваем у бэка, кто мы.
+  loadCurrentUser()
+
   updateCircles()
   observer = new ResizeObserver(updateCircles)
   observer.observe(document.body)
@@ -69,7 +73,9 @@ onUnmounted(() => {
     </template>
     <div class="app__content">
       <AppHeader v-if="!hideChrome" :role="userRole" @create="showCreateQuestion = true" />
-      <router-view />
+      <main class="app__main">
+        <router-view />
+      </main>
       <AppFooter v-if="!hideChrome" :role="userRole" />
     </div>
     <QuestionTypeModal v-if="showCreateQuestion" @close="showCreateQuestion = false" @select="onQuestionTypeSelect" />
@@ -113,6 +119,13 @@ onUnmounted(() => {
 .app__content {
   position: relative;
   z-index: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app__main {
+  flex: 1;
 }
 
 .app__too-small {

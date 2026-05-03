@@ -1,49 +1,19 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import QuizResultModal from '@/components/QuizResultModal.vue'
+import { apiFetch } from '@/api/client.js'
 
 const router = useRouter()
+const route = useRoute()
 const showResultModal = ref(false)
 const isReviewMode = ref(false)
+const resultScore = ref('')
+const loadError = ref('')
 
-const quiz = ref({
-  title: 'Знание языка Java',
-  questions: [
-    {
-      id: 1,
-      type: 'single',
-      text: 'Какой метод является точкой входа в Java-программу?',
-      file: { name: 'Схема сети, PNG', size: '30кб' },
-      answers: [
-        { id: 1, text: 'start()', correct: false },
-        { id: 2, text: 'run()', correct: false },
-        { id: 3, text: 'main()', correct: true },
-        { id: 4, text: 'init()', correct: false }
-      ]
-    },
-    {
-      id: 2,
-      type: 'multiple',
-      text: 'Какие из перечисленных типов данных являются примитивными в Java?',
-      file: { name: 'Схема сети, PNG', size: '30кб' },
-      answers: [
-        { id: 1, text: 'int', correct: true },
-        { id: 2, text: 'boolean', correct: true },
-        { id: 3, text: 'String', correct: false },
-        { id: 4, text: 'ArrayList', correct: false }
-      ]
-    },
-    {
-      id: 3,
-      type: 'open',
-      text: 'Что выведет следующий код?\nSystem.out.println(5 + 3 + "Java");',
-      answers: [
-        { id: 1, text: '8Java', correct: true }
-      ]
-    }
-  ]
-})
+// Пустой каркас, чтобы шаблон рендерился до загрузки данных без ошибок.
+const quiz = ref({ title: '', questions: [] })
+const attemptId = ref(null)
 
 const currentIndex = ref(0)
 const currentQuestion = computed(() => quiz.value.questions[currentIndex.value])
@@ -109,13 +79,51 @@ watch(currentIndex, () => {
   newOpenAnswer.value = ''
 })
 
+// Собираем ответы студента в формат, который ждёт бэк.
+const buildAnswersPayload = () =>
+  quiz.value.questions.map((q) => {
+    if (q.type === 'open') {
+      const chips = openAnswers.value[q.id] || []
+      // Берём первую непустую введённую запись.
+      const text = chips.find((t) => t && t.trim()) || ''
+      return { question_id: q.id, text_answer: text }
+    }
+    return {
+      question_id: q.id,
+      selected_option_ids: selected.value[q.id] || [],
+    }
+  })
+
+const isSubmitting = ref(false)
+
+async function submitAttempt() {
+  if (isSubmitting.value || !attemptId.value) return
+  isSubmitting.value = true
+  try {
+    const data = await apiFetch(`/api/student/attempts/${attemptId.value}/submit`, {
+      method: 'POST',
+      body: { answers: buildAnswersPayload() },
+    })
+    resultScore.value = `${data.score}/100`
+    showResultModal.value = true
+    if (timerId) clearInterval(timerId)
+  } catch (err) {
+    // Если бэк сказал "Время вышло" — всё равно показываем модалку с 0.
+    resultScore.value = '0/100'
+    showResultModal.value = true
+    console.error('Submit failed:', err)
+  } finally {
+    isSubmitting.value = false
+  }
+}
+
 const next = () => {
   if (currentIndex.value < quiz.value.questions.length - 1) {
     currentIndex.value++
   } else if (isReviewMode.value) {
     router.push('/student')
   } else {
-    showResultModal.value = true
+    submitAttempt()
   }
 }
 
@@ -130,7 +138,7 @@ const onResultReview = () => {
   currentIndex.value = 0
 }
 
-const remainingSec = ref(23 * 60 + 30)
+const remainingSec = ref(0)
 const timerDisplay = computed(() => {
   const m = Math.floor(remainingSec.value / 60)
   const s = remainingSec.value % 60
@@ -138,10 +146,44 @@ const timerDisplay = computed(() => {
 })
 
 let timerId
-onMounted(() => {
-  timerId = setInterval(() => {
-    if (remainingSec.value > 0) remainingSec.value--
-  }, 1000)
+let endTimestamp = 0 // когда заканчивается попытка (мс)
+
+function tickTimer() {
+  const remaining = Math.max(0, Math.ceil((endTimestamp - Date.now()) / 1000))
+  remainingSec.value = remaining
+  if (remaining <= 0) {
+    if (timerId) clearInterval(timerId)
+    submitAttempt() // авто-сабмит при истечении таймера
+  }
+}
+
+onMounted(async () => {
+  const quizId = Number(route.params.id)
+  if (!Number.isFinite(quizId)) {
+    loadError.value = 'Неверный id квиза'
+    return
+  }
+
+  try {
+    // 1. Загружаем квиз (без правильных ответов).
+    const data = await apiFetch(`/api/student/quizzes/${quizId}`)
+    quiz.value = data
+
+    // 2. Стартуем попытку — фиксируется started_at.
+    const attempt = await apiFetch('/api/student/attempts', {
+      method: 'POST',
+      body: { quiz_id: quizId },
+    })
+    attemptId.value = attempt.id
+
+    // 3. Запускаем таймер: дедлайн = started_at + time_limit минут.
+    endTimestamp =
+      new Date(attempt.started_at).getTime() + attempt.time_limit * 60 * 1000
+    tickTimer()
+    timerId = setInterval(tickTimer, 1000)
+  } catch (err) {
+    loadError.value = err.message || 'Не удалось загрузить квиз'
+  }
 })
 onUnmounted(() => {
   if (timerId) clearInterval(timerId)
@@ -150,6 +192,8 @@ onUnmounted(() => {
 
 <template>
   <div class="take-quiz">
+    <p v-if="loadError" class="take-quiz__load-error">{{ loadError }}</p>
+    <template v-else-if="quiz.questions.length">
     <section class="take-quiz__top-bar">
       <h2 class="take-quiz__top-title">{{ quiz.title }}</h2>
     </section>
@@ -265,9 +309,11 @@ onUnmounted(() => {
       </div>
     </section>
 
+    </template>
+
     <QuizResultModal
       v-if="showResultModal"
-      score="80/100"
+      :score="resultScore"
       @close="showResultModal = false"
       @home="onResultHome"
       @review="onResultReview"
@@ -278,6 +324,13 @@ onUnmounted(() => {
 <style scoped>
 .take-quiz {
   padding-top: 0;
+}
+
+.take-quiz__load-error {
+  text-align: center;
+  padding: 80px 24px;
+  color: var(--color-accent2);
+  font-size: var(--font-size-h3);
 }
 
 .take-quiz__top-bar {

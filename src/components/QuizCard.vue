@@ -1,4 +1,6 @@
 <script setup>
+import { ref } from 'vue'
+
 const props = defineProps({
   title: { type: String, required: true },
   questions: { type: [String, Number], default: '' },
@@ -11,8 +13,14 @@ const props = defineProps({
 
 const emit = defineEmits(['start', 'results', 'edit', 'publish'])
 
+const copied = ref(false)
+let resetTimer
+
 const copyCode = () => {
   navigator.clipboard.writeText(props.code)
+  copied.value = true
+  clearTimeout(resetTimer)
+  resetTimer = setTimeout(() => { copied.value = false }, 2000)
 }
 </script>
 
@@ -43,8 +51,11 @@ const copyCode = () => {
           class="btn btn-sm quiz-card__btn quiz-card__btn--code"
           @click.stop="copyCode"
         >
-          Код: {{ code }}
-          <img src="@/assets/icons/copy.svg" alt="" class="quiz-card__copy-icon">
+          <template v-if="copied">Скопировано</template>
+          <template v-else>
+            Код: {{ code }}
+            <img src="@/assets/icons/copy.svg" alt="" class="quiz-card__copy-icon">
+          </template>
         </button>
         <button
           v-else
@@ -52,7 +63,18 @@ const copyCode = () => {
           class="btn btn-sm quiz-card__btn"
           @click.stop="emit('publish')"
         >Опубликовать</button>
-        <button type="button" class="btn btn-sm quiz-card__btn" @click.stop="emit('edit')">Редактировать</button>
+        <button
+          v-if="status === 'unpublished'"
+          type="button"
+          class="btn btn-sm quiz-card__btn"
+          @click.stop="emit('edit')"
+        >Редактировать</button>
+        <button
+          v-else-if="status === 'open'"
+          type="button"
+          class="btn btn-sm quiz-card__btn quiz-card__btn--closed"
+          disabled
+        >Тест опубликован</button>
       </template>
       <template v-else>
         <button

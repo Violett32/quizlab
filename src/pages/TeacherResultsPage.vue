@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import EmptyState from '@/components/EmptyState.vue'
 
 const router = useRouter()
 
@@ -69,7 +70,7 @@ const goBack = () => {
       <h1 class="teacher-results__title">Результаты</h1>
     </div>
 
-    <div class="teacher-results__columns">
+    <div v-if="quizResults.length" class="teacher-results__columns">
       <div v-for="(q, qi) in quizResults" :key="qi" class="teacher-results__column">
         <h3 class="teacher-results__quiz-name">{{ q.quiz }}</h3>
         <div class="teacher-results__list">
@@ -85,6 +86,7 @@ const goBack = () => {
         </div>
       </div>
     </div>
+    <EmptyState v-else text="У вас пока нет результатов" />
   </div>
 </template>
 

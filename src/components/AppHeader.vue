@@ -1,12 +1,19 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { useRoute } from 'vue-router'
 
-defineProps({
+const props = defineProps({
   role: {
     type: String,
     default: 'teacher' // 'guest'  'student'  'teacher'
   }
+})
+
+// Куда вести по клику на лого: гость — лендинг, иначе — домашняя по роли.
+const logoTarget = computed(() => {
+  if (props.role === 'teacher') return '/teacher'
+  if (props.role === 'student') return '/student'
+  return '/'
 })
 
 const emit = defineEmits(['create'])
@@ -27,7 +34,7 @@ watch(() => route.fullPath, closeMenu)
 <template>
   <header class="header" :class="{ 'header--guest': role === 'guest' }">
     <div class="container header__inner">
-      <router-link to="/" class="logo">
+      <router-link :to="logoTarget" class="logo">
         <img src="@/assets/images/logo.svg" alt="КвизЛаб">
       </router-link>
 
@@ -58,7 +65,7 @@ watch(() => route.fullPath, closeMenu)
 
     <div v-if="menuOpen" class="mobile-menu">
       <div class="mobile-menu__top">
-        <router-link to="/" class="logo mobile-menu__logo" @click="closeMenu">
+        <router-link :to="logoTarget" class="logo mobile-menu__logo" @click="closeMenu">
           <img src="@/assets/images/logo.svg" alt="КвизЛаб">
         </router-link>
         <button type="button" class="mobile-menu__close" aria-label="Закрыть" @click="closeMenu">

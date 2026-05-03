@@ -16,4 +16,11 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url))
     },
   },
+  server: {
+    // В dev-режиме всё, что начинается на /api, проксируем на бэк (localhost:3000).
+    // Так фронт и бэк для браузера на одном origin — никаких CORS-проблем.
+    proxy: {
+      '/api': 'http://localhost:3000',
+    },
+  },
 })

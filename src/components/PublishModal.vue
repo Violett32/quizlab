@@ -1,23 +1,65 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import BaseModal from './BaseModal.vue'
 
-const emit = defineEmits(['close'])
+const props = defineProps({
+  // Код, полученный от бэка после публикации. Пока null — мы ещё не опубликовали.
+  shareCode: { type: String, default: null },
+  isLoading: { type: Boolean, default: false },
+  error: { type: String, default: '' },
+})
+const emit = defineEmits(['close', 'publish'])
 const router = useRouter()
 
 const step = ref('settings') // 'settings' | 'success'
 const answerType = ref('open') // 'open' | 'closed'
 const closeDate = ref('')
-const generatedCode = ref('372937')
+const submitted = ref(false)
+const codeCopied = ref(false)
+let copyResetTimer
+// До первого клика держим input как text — чтобы показать наш placeholder
+// (у datetime-local placeholder игнорируется, всегда видны "дд.мм.гггг --:--").
+const inputType = ref('text')
+
+const onDateFocus = () => {
+  inputType.value = 'datetime-local'
+}
+const onDateBlur = () => {
+  if (!closeDate.value) inputType.value = 'text'
+}
+
+// Минимальный момент для пикера — текущая локальная дата+время. Прошедшее выбрать нельзя.
+function localNowForInput() {
+  const now = new Date()
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`
+}
+const minDateTime = localNowForInput()
+
+// Подсветка пустого поля включается только после первой попытки публикации.
+const invalidCloseDate = computed(() => submitted.value && !closeDate.value)
+
+// Когда родитель прислал код — публикация прошла, переключаемся на success.
+watch(() => props.shareCode, (v) => {
+  if (v) step.value = 'success'
+})
 
 const publish = () => {
-  // TODO: реальная публикация
-  step.value = 'success'
+  submitted.value = true
+  if (!closeDate.value) return
+  // datetime-local отдаёт строку без TZ ("2026-12-31T23:59") — Date парсит как локальное время,
+  // toISOString() конвертирует в UTC. Бэк сохранит корректно с таймзоной.
+  const iso = new Date(closeDate.value).toISOString()
+  emit('publish', { deadline: iso })
 }
 
 const copyCode = () => {
-  navigator.clipboard.writeText(generatedCode.value)
+  if (!props.shareCode) return
+  navigator.clipboard.writeText(props.shareCode)
+  codeCopied.value = true
+  clearTimeout(copyResetTimer)
+  copyResetTimer = setTimeout(() => { codeCopied.value = false }, 2000)
 }
 
 const goHome = () => {
@@ -49,13 +91,21 @@ const goHome = () => {
       <div class="publish__field">
         <input
           v-model="closeDate"
-          type="text"
-          class="publish__input"
+          :type="inputType"
+          :min="minDateTime"
+          :readonly="inputType === 'text'"
+          :class="['publish__input', { 'publish__input--invalid': invalidCloseDate }]"
           placeholder="Дата и время закрытия квиза"
+          @focus="onDateFocus"
+          @blur="onDateBlur"
         />
       </div>
 
-      <button type="button" class="btn btn-lg publish__submit" @click="publish">Опубликовать</button>
+      <p v-if="error" class="publish__error">{{ error }}</p>
+
+      <button type="button" class="btn btn-lg publish__submit" @click="publish" :disabled="isLoading">
+        {{ isLoading ? 'Публикуем…' : 'Опубликовать' }}
+      </button>
     </div>
 
     <div class="publish" v-else>
@@ -69,8 +119,11 @@ const goHome = () => {
       </div>
 
       <button type="button" class="btn btn-sm publish__code-btn" @click="copyCode">
-        Код: {{ generatedCode }}
-        <img src="@/assets/icons/copy.svg" alt="" class="publish__copy-icon">
+        <template v-if="codeCopied">Скопировано</template>
+        <template v-else>
+          Код: {{ shareCode }}
+          <img src="@/assets/icons/copy.svg" alt="" class="publish__copy-icon">
+        </template>
       </button>
 
       <button type="button" class="btn btn-lg publish__submit" @click="goHome">Вернуться на главную</button>
@@ -140,9 +193,27 @@ const goHome = () => {
   opacity: 0.7;
 }
 
+.publish__input--invalid,
+.publish__input--invalid:focus {
+  border-color: var(--color-accent2);
+}
+
+/* Когда дата ещё не выбрана — type=date в WebKit не отдаёт placeholder, делаем подсказку плейсхолдером сами. */
+.publish__input[type='date']:invalid::-webkit-datetime-edit {
+  color: var(--color-text);
+  opacity: 0.7;
+}
+
 .publish__submit {
   display: block;
   margin: 0 auto;
+}
+
+.publish__error {
+  color: var(--color-accent2);
+  font-size: var(--font-size-body);
+  text-align: center;
+  margin: 0 0 12px;
 }
 
 .publish__check {

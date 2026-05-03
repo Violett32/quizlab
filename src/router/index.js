@@ -1,4 +1,5 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
+import { useAuth } from '@/composables/useAuth.js'
 import HomePage from '../pages/HomePage.vue'
 import RegisterPage from '../pages/RegisterPage.vue'
 import StudentHomePage from '../pages/StudentHomePage.vue'
@@ -78,6 +79,31 @@ const router = createRouter({
   scrollBehavior() {
     return { top: 0 }
   }
+})
+
+// Глобальный гард: пускает на страницы с meta.role только нужную роль.
+router.beforeEach(async (to) => {
+  const requiredRole = to.meta?.role
+  if (!requiredRole) return true // публичная страница — пропускаем всех
+
+  const { user, loadCurrentUser } = useAuth()
+
+  // На холодной загрузке user ещё не подтянут — даём шанс восстановить сессию.
+  if (!user.value) {
+    await loadCurrentUser()
+  }
+
+  if (!user.value) {
+    // Не залогинен — на главную.
+    return { path: '/' }
+  }
+
+  if (user.value.role !== requiredRole) {
+    // Залогинен, но роль не та — отправляем на его собственную домашнюю.
+    return { path: user.value.role === 'teacher' ? '/teacher' : '/student' }
+  }
+
+  return true
 })
 
 export default router

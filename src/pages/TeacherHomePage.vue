@@ -1,22 +1,49 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import ResultItem from '@/components/ResultItem.vue'
 import QuizCard from '@/components/QuizCard.vue'
 import PublishModal from '@/components/PublishModal.vue'
 import QuestionTypeModal from '@/components/QuestionTypeModal.vue'
+import EmptyState from '@/components/EmptyState.vue'
+import { useAuth } from '@/composables/useAuth.js'
+import { loadTeacherQuizzes } from '@/api/teacher.js'
+import { apiFetch } from '@/api/client.js'
 
 const router = useRouter()
-const showPublish = ref(false)
 const showCreateQuestion = ref(false)
 
-// заменить на данные из БД
-const user = ref({
-  name: 'Бореева Виолетта',
-  email: 'boreevaviola@gmail.com',
-  isu: '367910',
-  avatar: null
-})
+// Состояние публикации: какой квиз публикуем + пропы для модалки.
+const publishingId = ref(null)
+const publishShareCode = ref(null)
+const isPublishLoading = ref(false)
+const publishError = ref('')
+
+const startPublish = (id) => {
+  publishingId.value = id
+  publishShareCode.value = null
+  publishError.value = ''
+}
+
+const onPublish = async ({ deadline }) => {
+  publishError.value = ''
+  isPublishLoading.value = true
+  try {
+    const data = await apiFetch(
+      `/api/teacher/quizzes/${publishingId.value}/publish`,
+      { method: 'POST', body: { deadline: deadline || null } }
+    )
+    publishShareCode.value = data.share_code
+    // Обновляем список — на карточке появится свеже-выданный код.
+    quizzes.value = await loadTeacherQuizzes()
+  } catch (err) {
+    publishError.value = err.message || 'Не удалось опубликовать квиз'
+  } finally {
+    isPublishLoading.value = false
+  }
+}
+
+const { user, logout: authLogout } = useAuth()
 
 const results = ref([
   { title: 'Знание языка Java', score: '78/100', people: 24 },
@@ -27,14 +54,18 @@ const results = ref([
   { title: 'Основы веб-разработки', score: '20/100', people: 15 }
 ])
 
-const quizzes = ref([
-  { id: 1, title: 'Знание языка Java', questions: 100, duration: '30 минут', openUntil: '10.08.26', status: 'open', code: '372937' },
-  { id: 2, title: 'Информационная безопасность', questions: 80, duration: '30 минут', openUntil: '23.02.27', status: 'unpublished', code: '' },
-  { id: 3, title: 'Основы веб-разработки', questions: 60, duration: '14 минут', openUntil: '12.02.26', status: 'closed', code: '' },
-  { id: 4, title: 'Алгоритмы и структуры данных', questions: 120, duration: '40 минут', openUntil: '15.03.26', status: 'closed', code: '' }
-])
+const quizzes = ref([])
+
+onMounted(async () => {
+  try {
+    quizzes.value = await loadTeacherQuizzes()
+  } catch (err) {
+    console.error('Failed to load quizzes:', err)
+  }
+})
 
 const logout = () => {
+  authLogout()
   router.push('/')
 }
 
@@ -73,44 +104,58 @@ const onQuestionTypeSelect = (type) => {
       <div class="column">
         <h3 class="column__title">Результаты студентов</h3>
         <p class="column__desc">Отслеживайте успеваемость студентов в одном месте: средний балл<br>и количество прошедших по каждому квизу.</p>
-        <div class="column__list">
-          <ResultItem
-            v-for="(r, i) in results"
-            :key="i"
-            :title="r.title"
-            :score="r.score"
-            :people="r.people"
-            class="column__result-link"
-            @click="router.push('/teacher/results')"
-          />
-        </div>
-        <button type="button" class="btn btn-lg column__more" @click="router.push('/teacher/results')">Посмотреть все</button>
+        <template v-if="results.length">
+          <div class="column__list">
+            <ResultItem
+              v-for="(r, i) in results"
+              :key="i"
+              :title="r.title"
+              :score="r.score"
+              :people="r.people"
+              class="column__result-link"
+              @click="router.push('/teacher/results')"
+            />
+          </div>
+          <button type="button" class="btn btn-lg column__more" @click="router.push('/teacher/results')">Посмотреть все</button>
+        </template>
+        <EmptyState v-else text="У вас пока нет результатов" />
       </div>
 
       <div class="column">
         <h3 class="column__title">Созданные квизы</h3>
         <p class="column__desc">Управляйте своими квизами: редактирование, настройка доступа<br>и отслеживание статуса.</p>
-        <div class="column__grid">
-          <QuizCard
-            v-for="q in quizzes"
-            :key="q.id"
-            :title="q.title"
-            :questions="q.questions"
-            :duration="q.duration"
-            :open-until="q.openUntil"
-            :status="q.status"
-            :mode="'teacher'"
-            :code="q.code"
-            class="column__quiz-link"
-            @click="router.push('/teacher/quizzes')"
-            @publish="showPublish = true"
-          />
-        </div>
-        <button type="button" class="btn btn-lg column__more" @click="router.push('/teacher/quizzes')">Посмотреть все</button>
+        <template v-if="quizzes.length">
+          <div class="column__grid">
+            <QuizCard
+              v-for="q in quizzes"
+              :key="q.id"
+              :title="q.title"
+              :questions="q.questions"
+              :duration="q.duration"
+              :open-until="q.openUntil"
+              :status="q.status"
+              :mode="'teacher'"
+              :code="q.code"
+              class="column__quiz-link"
+              @click="router.push('/teacher/quizzes')"
+              @publish="startPublish(q.id)"
+              @edit="router.push(`/create?edit=${q.id}`)"
+            />
+          </div>
+          <button type="button" class="btn btn-lg column__more" @click="router.push('/teacher/quizzes')">Посмотреть все</button>
+        </template>
+        <EmptyState v-else text="У вас пока нет квизов" />
       </div>
     </section>
 
-    <PublishModal v-if="showPublish" @close="showPublish = false" />
+    <PublishModal
+      v-if="publishingId"
+      :share-code="publishShareCode"
+      :is-loading="isPublishLoading"
+      :error="publishError"
+      @close="publishingId = null"
+      @publish="onPublish"
+    />
     <QuestionTypeModal v-if="showCreateQuestion" @close="showCreateQuestion = false" @select="onQuestionTypeSelect" />
   </div>
 </template>

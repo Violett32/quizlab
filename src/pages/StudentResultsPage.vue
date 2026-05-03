@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import ResultItem from '@/components/ResultItem.vue'
+import EmptyState from '@/components/EmptyState.vue'
 
 const router = useRouter()
 
@@ -31,7 +32,7 @@ const goBack = () => {
       <h1 class="results-page__title">Результаты</h1>
     </div>
 
-    <div class="results-page__list">
+    <div v-if="results.length" class="results-page__list">
       <ResultItem
         v-for="(r, i) in results"
         :key="i"
@@ -43,6 +44,7 @@ const goBack = () => {
         :action-disabled="r.disabled"
       />
     </div>
+    <EmptyState v-else text="У вас пока нет результатов" />
   </div>
 </template>
 
