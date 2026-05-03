@@ -5,6 +5,11 @@ defineProps({
   score: {
     type: [String, Number],
     default: '80/100'
+  },
+  // Учитель при публикации может разрешить или запретить просмотр правильных ответов.
+  showAnswers: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -12,14 +17,14 @@ const emit = defineEmits(['close', 'home', 'review'])
 </script>
 
 <template>
-  <BaseModal @close="emit('close')">
+  <BaseModal :dismissable="false" @close="emit('close')">
     <div class="result">
       <h2 class="result__title">Результат</h2>
       <p class="result__score">{{ score }}</p>
 
       <div class="result__actions">
         <button type="button" class="btn btn-lg result__action" @click="emit('home')">Перейти на главную</button>
-        <button type="button" class="btn btn-lg result__action" @click="emit('review')">Посмотреть ответы</button>
+        <button v-if="showAnswers" type="button" class="btn btn-lg result__action" @click="emit('review')">Посмотреть ответы</button>
       </div>
     </div>
   </BaseModal>

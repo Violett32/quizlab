@@ -17,6 +17,16 @@ function signToken(user) {
   );
 }
 
+// Лимит на аватар (исходный размер до base64).
+const MAX_AVATAR_BYTES = 2 * 1024 * 1024; // 2 МБ
+
+// Превращает строку аватара из БД в data: URL для <img :src>.
+// Возвращает null, если аватара нет.
+function buildAvatarDataUrl(data, mime) {
+  if (!data) return null;
+  return `data:${mime || 'application/octet-stream'};base64,${data.toString('base64')}`;
+}
+
 // Middleware: проверяет токен в заголовке Authorization.
 // Если ок — кладёт { email, role } в req.user. Если нет — отвечает 401.
 export function requireAuth(req, res, next) {
@@ -94,7 +104,7 @@ authRouter.post('/login', async (req, res) => {
 
   try {
     const result = await pool.query(
-      'SELECT email, password, isu, name, role FROM users WHERE email = $1',
+      'SELECT email, password, isu, name, role, avatar_data, avatar_mime FROM users WHERE email = $1',
       [email]
     );
     const row = result.rows[0];
@@ -108,7 +118,13 @@ authRouter.post('/login', async (req, res) => {
     }
 
     // не отдаём хэш пароля наружу
-    const user = { email: row.email, isu: row.isu, name: row.name, role: row.role };
+    const user = {
+      email: row.email,
+      isu: row.isu,
+      name: row.name,
+      role: row.role,
+      avatar: buildAvatarDataUrl(row.avatar_data, row.avatar_mime),
+    };
     res.json({ user, token: signToken(user) });
   } catch (err) {
     console.error('Login failed:', err);
@@ -120,16 +136,50 @@ authRouter.post('/login', async (req, res) => {
 authRouter.get('/me', requireAuth, async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT email, isu, name, role FROM users WHERE email = $1',
+      'SELECT email, isu, name, role, avatar_data, avatar_mime FROM users WHERE email = $1',
       [req.user.email]
     );
-    const user = result.rows[0];
-    if (!user) {
+    const row = result.rows[0];
+    if (!row) {
       return res.status(404).json({ error: 'User not found' });
     }
+    const user = {
+      email: row.email,
+      isu: row.isu,
+      name: row.name,
+      role: row.role,
+      avatar: buildAvatarDataUrl(row.avatar_data, row.avatar_mime),
+    };
     res.json({ user });
   } catch (err) {
     console.error('/me failed:', err);
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+// POST /api/auth/avatar — загрузка/замена аватара.
+// Принимает { base64, mime }. Mime должен начинаться с 'image/'. Лимит 2 МБ.
+authRouter.post('/avatar', requireAuth, async (req, res) => {
+  const { base64, mime } = req.body ?? {};
+  if (!base64 || !mime) {
+    return res.status(400).json({ error: 'Missing base64 or mime' });
+  }
+  if (!String(mime).startsWith('image/')) {
+    return res.status(400).json({ error: 'Аватар должен быть изображением' });
+  }
+  const data = Buffer.from(base64, 'base64');
+  if (data.length > MAX_AVATAR_BYTES) {
+    return res.status(400).json({ error: 'Аватар больше 2 МБ' });
+  }
+  try {
+    await pool.query(
+      'UPDATE users SET avatar_data = $1, avatar_mime = $2 WHERE email = $3',
+      [data, mime, req.user.email]
+    );
+    // Возвращаем готовый data URL, чтобы фронт сразу обновил <img :src>.
+    res.json({ avatar: buildAvatarDataUrl(data, mime) });
+  } catch (err) {
+    console.error('Upload avatar failed:', err);
     res.status(500).json({ error: 'Internal error' });
   }
 });

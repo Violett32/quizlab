@@ -1,22 +1,22 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import QuizCard from '@/components/QuizCard.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import { loadStudentAttempts } from '@/api/student.js'
 
 const router = useRouter()
 
-// TODO: заменить на данные из БД
-const quizzes = ref([
-  { id: 1, title: 'Знание языка Java', questions: 100, duration: '30 минут', openUntil: '10.08.26', status: 'open' },
-  { id: 2, title: 'Операционные системы', questions: 20, duration: '40 минут', openUntil: '22.12.26', status: 'open' },
-  { id: 3, title: 'Знание языка Java', questions: 100, duration: '30 минут', openUntil: '10.08.26', status: 'open' },
-  { id: 4, title: 'Операционные системы', questions: 20, duration: '40 минут', openUntil: '22.12.26', status: 'open' },
-  { id: 5, title: 'Информационная безопасность', questions: 80, duration: '30 минут', openUntil: '23.02.27', status: 'open' },
-  { id: 6, title: 'Основы веб-разработки', questions: 60, duration: '14 минут', openUntil: '12.02.26', status: 'closed' },
-  { id: 7, title: 'Основы веб-разработки', questions: 60, duration: '14 минут', openUntil: '12.02.26', status: 'closed' },
-  { id: 8, title: 'Основы веб-разработки', questions: 60, duration: '14 минут', openUntil: '12.02.26', status: 'closed' }
-])
+const quizzes = ref([])
+
+onMounted(async () => {
+  try {
+    const data = await loadStudentAttempts()
+    quizzes.value = data.quizzes
+  } catch (err) {
+    console.error('Failed to load student quizzes:', err)
+  }
+})
 
 const goBack = () => {
   router.back()
@@ -29,7 +29,7 @@ const goBack = () => {
       <button type="button" class="quizzes-page__back" @click="goBack" aria-label="Назад">
         <img src="@/assets/icons/arrow.svg" alt="" class="quizzes-page__back-icon">
       </button>
-      <h1 class="quizzes-page__title">Мои квизы</h1>
+      <h1 class="quizzes-page__title">Квизы</h1>
     </div>
 
     <div v-if="quizzes.length" class="quizzes-page__grid">
@@ -41,6 +41,8 @@ const goBack = () => {
         :duration="q.duration"
         :open-until="q.openUntil"
         :status="q.status"
+        @start="router.push(`/quiz/${q.id}`)"
+        @results="router.push(`/results?quiz=${q.id}`)"
       />
     </div>
     <EmptyState v-else text="У вас пока нет пройденных квизов" />

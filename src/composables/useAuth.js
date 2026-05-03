@@ -33,6 +33,31 @@ export function useAuth() {
     user.value = null;
   }
 
+  // FileReader → base64 без префикса "data:...;base64,".
+  function readAsBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const str = reader.result || '';
+        const comma = str.indexOf(',');
+        resolve(comma >= 0 ? str.slice(comma + 1) : str);
+      };
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // Загружает фото профиля. Бэк отвечает готовым data URL — кладём прямо в user.avatar.
+  async function uploadAvatar(file) {
+    const base64 = await readAsBase64(file);
+    const data = await apiFetch('/api/auth/avatar', {
+      method: 'POST',
+      body: { base64, mime: file.type || 'application/octet-stream' },
+    });
+    if (user.value) user.value = { ...user.value, avatar: data.avatar };
+    return data.avatar;
+  }
+
   // Восстановление сессии при перезагрузке страницы.
   // Если user уже загружен — ничего не делаем.
   // Если токен в localStorage есть — спрашиваем у бэка, кто мы.
@@ -51,5 +76,5 @@ export function useAuth() {
     }
   }
 
-  return { user, isAuthenticated, register, login, logout, loadCurrentUser };
+  return { user, isAuthenticated, register, login, logout, loadCurrentUser, uploadAvatar };
 }

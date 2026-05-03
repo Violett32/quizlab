@@ -32,7 +32,7 @@ defineProps({
         <div v-if="role !== 'guest'" class="footer__col">
           <p class="footer__heading">Навигация</p>
           <div class="footer__links">
-            <router-link :to="role === 'teacher' ? '/teacher/quizzes' : '/quizzes'" class="footer__link">Мои квизы</router-link>
+            <router-link :to="role === 'teacher' ? '/teacher/quizzes' : '/quizzes'" class="footer__link">Квизы</router-link>
             <router-link :to="role === 'teacher' ? '/teacher/results' : '/results'" class="footer__link">Результаты</router-link>
           </div>
         </div>

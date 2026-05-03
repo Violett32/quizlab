@@ -6,6 +6,32 @@ export const studentRouter = Router();
 
 const TYPE_FROM_DB = { single: 'single', multi: 'multiple', text: 'open' };
 
+// GET /api/student/attempts — список завершённых попыток студента.
+// Для секций "Мои результаты" и "Пройденные квизы" на странице студента.
+// Джоинит quizzes (для title/time_limit/deadline/status) и считает question_count.
+studentRouter.get('/attempts', requireStudent, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT a.id, a.score, a.started_at, a.finished_at,
+              q.id            AS quiz_id,
+              q.title         AS quiz_title,
+              q.time_limit    AS quiz_time_limit,
+              q.deadline      AS quiz_deadline,
+              q.status        AS quiz_status,
+              (SELECT COUNT(*)::int FROM questions WHERE quiz_id = q.id) AS quiz_question_count
+       FROM attempts a
+       JOIN quizzes q ON q.id = a.quiz_id
+       WHERE a.student_email = $1 AND a.is_completed = true
+       ORDER BY a.started_at DESC`,
+      [req.user.email]
+    );
+    res.json({ attempts: result.rows });
+  } catch (err) {
+    console.error('List student attempts failed:', err);
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
 // POST /api/student/join — вход в квиз по коду.
 // Проверяет: квиз существует, опубликован (status='active'), дедлайн не прошёл.
 studentRouter.post('/join', requireStudent, async (req, res) => {
@@ -62,7 +88,8 @@ studentRouter.get('/quizzes/:id', requireStudent, async (req, res) => {
     }
 
     const questionsResult = await pool.query(
-      `SELECT id, type, text, order_index, points
+      `SELECT id, type, text, order_index, points,
+              file_name, file_mime, file_size
        FROM questions WHERE quiz_id = $1 ORDER BY order_index`,
       [quizId]
     );
@@ -94,6 +121,13 @@ studentRouter.get('/quizzes/:id', requireStudent, async (req, res) => {
         points: q.points,
         // Для open-вопросов варианты — это правильные ответы учителя, их фронту не отдаём.
         answers: uiType === 'open' ? [] : (optionsByQuestion.get(q.id) || []),
+        // Метаданные файла, если он прикреплён. Сами байты — только через /api/files.
+        file: q.file_name ? {
+          name: q.file_name,
+          mime: q.file_mime,
+          size: q.file_size,
+          url: `/api/files/question/${q.id}`,
+        } : null,
       };
     });
 
@@ -163,7 +197,8 @@ studentRouter.post('/attempts/:id/submit', requireStudent, async (req, res) => {
 
     // Проверка владения и статуса попытки.
     const attemptResult = await client.query(
-      `SELECT a.id, a.started_at, a.is_completed, a.quiz_id, q.time_limit
+      `SELECT a.id, a.started_at, a.is_completed, a.quiz_id,
+              q.time_limit, q.show_answers
        FROM attempts a JOIN quizzes q ON q.id = a.quiz_id
        WHERE a.id = $1 AND a.student_email = $2`,
       [attemptId, req.user.email]
@@ -211,42 +246,50 @@ studentRouter.post('/attempts/:id/submit', requireStudent, async (req, res) => {
     const answersMap = new Map(answers.map((a) => [Number(a.question_id), a]));
 
     let totalPoints = 0;
-    let earnedPoints = 0;
-    let correctCount = 0;
+    let earnedPoints = 0; // float, копится с дробями для multi
+    let correctCount = 0; // число вопросов, отвеченных полностью правильно
 
     // Идём по каждому вопросу квиза, оцениваем ответ студента, пишем в БД.
     for (const q of questionsResult.rows) {
       totalPoints += q.points;
       const userAnswer = answersMap.get(q.id);
       const options = optionsByQuestion.get(q.id) || [];
-      let isCorrect = false;
+      let ratio = 0; // доля заработанного балла за вопрос (0..1)
       let textAnswer = null;
 
       if (userAnswer) {
         if (q.type === 'single') {
           const selected = userAnswer.selected_option_ids || [];
           const correctIds = options.filter((o) => o.is_correct).map((o) => o.id);
-          isCorrect = selected.length === 1 && correctIds.includes(selected[0]);
+          ratio = selected.length === 1 && correctIds.includes(selected[0]) ? 1 : 0;
         } else if (q.type === 'multi') {
-          const selected = [...(userAnswer.selected_option_ids || [])].sort();
-          const correctIds = options.filter((o) => o.is_correct).map((o) => o.id).sort();
-          isCorrect =
-            selected.length === correctIds.length &&
-            selected.every((id, i) => id === correctIds[i]);
+          // Частичный балл со штрафом за лишнее: max(0, верных - лишних) / всего верных.
+          const selected = userAnswer.selected_option_ids || [];
+          const correctIds = options.filter((o) => o.is_correct).map((o) => o.id);
+          if (correctIds.length > 0) {
+            let correctSelected = 0;
+            let wrongSelected = 0;
+            for (const id of selected) {
+              if (correctIds.includes(id)) correctSelected++;
+              else wrongSelected++;
+            }
+            const balance = Math.max(0, correctSelected - wrongSelected);
+            ratio = balance / correctIds.length;
+          }
         } else if (q.type === 'text') {
           textAnswer = String(userAnswer.text_answer || '').trim();
           const userNorm = textAnswer.toLowerCase();
           const correctTexts = options
             .filter((o) => o.is_correct)
             .map((o) => o.text.trim().toLowerCase());
-          isCorrect = !!userNorm && correctTexts.includes(userNorm);
+          ratio = !!userNorm && correctTexts.includes(userNorm) ? 1 : 0;
         }
       }
 
-      if (isCorrect) {
-        earnedPoints += q.points;
-        correctCount++;
-      }
+      earnedPoints += q.points * ratio;
+      // is_correct в БД пишем только если вопрос отвечен идеально (для разбора и совместимости).
+      const isCorrect = ratio === 1;
+      if (isCorrect) correctCount++;
 
       // Сохраняем ответ студента и его выбранные варианты.
       const saRes = await client.query(
@@ -277,11 +320,31 @@ studentRouter.post('/attempts/:id/submit', requireStudent, async (req, res) => {
     );
 
     await client.query('COMMIT');
-    res.json({
+
+    // Если учитель разрешил — отдаём правильные ответы по каждому вопросу,
+    // чтобы фронт мог показать разбор. Иначе ничего не отдаём.
+    const response = {
       score,
       total_questions: questionsResult.rows.length,
       correct_count: correctCount,
-    });
+      show_answers: attempt.show_answers,
+    };
+    if (attempt.show_answers) {
+      response.answers = questionsResult.rows.map((q) => {
+        const opts = optionsByQuestion.get(q.id) || [];
+        if (q.type === 'text') {
+          return {
+            question_id: q.id,
+            correct_texts: opts.filter((o) => o.is_correct).map((o) => o.text),
+          };
+        }
+        return {
+          question_id: q.id,
+          correct_option_ids: opts.filter((o) => o.is_correct).map((o) => o.id),
+        };
+      });
+    }
+    res.json(response);
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('Submit attempt failed:', err);

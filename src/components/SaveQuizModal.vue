@@ -69,7 +69,7 @@ const goHome = () => {
             v-model="duration"
             type="text"
             :class="['save-quiz__input', { 'save-quiz__input--invalid': invalidDuration }]"
-            placeholder="Время на прохождение квиза (в минутах)"
+            placeholder="Время прохождения, мин"
           />
           <span v-if="showDurationHint" class="save-quiz__hint">(время в минутах)</span>
         </div>

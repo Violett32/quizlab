@@ -11,7 +11,7 @@ const props = defineProps({
   code: { type: String, default: '' }
 })
 
-const emit = defineEmits(['start', 'results', 'edit', 'publish'])
+const emit = defineEmits(['start', 'results', 'edit', 'publish', 'delete'])
 
 const copied = ref(false)
 let resetTimer
@@ -26,6 +26,14 @@ const copyCode = () => {
 
 <template>
   <div class="quiz-card">
+    <button
+      v-if="mode === 'teacher'"
+      type="button"
+      class="quiz-card__delete"
+      aria-label="Удалить квиз"
+      @click.stop="emit('delete')"
+    >×</button>
+
     <h4 class="quiz-card__title">{{ title }}</h4>
 
     <div class="quiz-card__meta">
@@ -97,6 +105,7 @@ const copyCode = () => {
 
 <style scoped>
 .quiz-card {
+  position: relative;
   width: 298px;
   height: 286px;
   background: var(--color-bg2);
@@ -108,6 +117,26 @@ const copyCode = () => {
   align-items: center;
   text-align: center;
   gap: 12px;
+}
+
+.quiz-card__delete {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  width: 28px;
+  height: 28px;
+  background: none;
+  border: none;
+  font-size: 26px;
+  line-height: 1;
+  color: var(--color-text-light);
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.2s ease;
+}
+
+.quiz-card__delete:hover {
+  color: var(--color-accent2);
 }
 
 .quiz-card:hover {

@@ -10,6 +10,45 @@ export const teacherQuizzesRouter = Router();
 const TYPE_TO_DB = { single: 'single', multiple: 'multi', open: 'text' };
 const TYPE_FROM_DB = { single: 'single', multi: 'multiple', text: 'open' };
 
+// Проверка целостности вопросов: у каждого должен быть хотя бы один правильный ответ.
+// Возвращает строку-ошибку (для отдачи в 400) или null, если всё ок.
+function validateQuestions(questions) {
+  for (let i = 0; i < questions.length; i++) {
+    const q = questions[i];
+    const answers = Array.isArray(q.answers) ? q.answers : [];
+    const hasCorrect = q.type === 'open'
+      ? answers.some((a) => a.correct && (a.text || '').trim())
+      : answers.some((a) => a.correct);
+    if (!hasCorrect) {
+      return q.type === 'open'
+        ? `Вопрос ${i + 1}: добавьте хотя бы один правильный ответ`
+        : `Вопрос ${i + 1}: отметьте хотя бы один правильный ответ`;
+    }
+  }
+  return null;
+}
+
+// Жёсткий лимит на размер прикреплённого файла. Бэк проверяет независимо от фронта.
+const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 МБ
+
+// Раскладывает файл вопроса (если есть) в четвёрку для INSERT: [data, name, mime, size].
+// Если файла нет или нет base64 — возвращает четыре null.
+function unpackFile(file) {
+  if (!file || !file.base64) return [null, null, null, null];
+  const data = Buffer.from(file.base64, 'base64');
+  if (data.length > MAX_FILE_BYTES) {
+    const err = new Error('Файл больше 10 МБ');
+    err.code = 'FILE_TOO_LARGE';
+    throw err;
+  }
+  return [
+    data,
+    file.name || 'file',
+    file.mime || 'application/octet-stream',
+    data.length,
+  ];
+}
+
 // Вспомогалка: вставляет вопросы и варианты в открытом транзакционном клиенте.
 async function insertQuestions(client, quizId, questions) {
   for (let qi = 0; qi < questions.length; qi++) {
@@ -17,11 +56,16 @@ async function insertQuestions(client, quizId, questions) {
     const dbType = TYPE_TO_DB[q.type];
     if (!dbType) throw new Error(`Unknown question type: ${q.type}`);
 
+    const [fileData, fileName, fileMime, fileSize] = unpackFile(q.file);
+
     const qRes = await client.query(
-      `INSERT INTO questions (type, text, order_index, points, quiz_id)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO questions
+         (type, text, order_index, points, quiz_id,
+          file_data, file_name, file_mime, file_size)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING id`,
-      [dbType, q.text || '', qi, q.points ?? 1, quizId]
+      [dbType, q.text || '', qi, q.points ?? 1, quizId,
+       fileData, fileName, fileMime, fileSize]
     );
     const questionId = qRes.rows[0].id;
 
@@ -53,6 +97,10 @@ teacherQuizzesRouter.post('/', requireTeacher, async (req, res) => {
   if (questions.length === 0) {
     return res.status(400).json({ error: 'Quiz must have at least one question' });
   }
+  const validationError = validateQuestions(questions);
+  if (validationError) {
+    return res.status(400).json({ error: validationError });
+  }
 
   const client = await pool.connect();
   try {
@@ -73,6 +121,9 @@ teacherQuizzesRouter.post('/', requireTeacher, async (req, res) => {
     res.status(201).json({ id: quizId });
   } catch (err) {
     await client.query('ROLLBACK');
+    if (err.code === 'FILE_TOO_LARGE') {
+      return res.status(400).json({ error: err.message });
+    }
     console.error('Create quiz failed:', err);
     res.status(500).json({ error: 'Internal error' });
   } finally {
@@ -99,7 +150,8 @@ teacherQuizzesRouter.get('/:id', requireTeacher, async (req, res) => {
     }
 
     const questionsResult = await pool.query(
-      `SELECT id, type, text, order_index, points
+      `SELECT id, type, text, order_index, points,
+              file_name, file_mime, file_size
        FROM questions
        WHERE quiz_id = $1
        ORDER BY order_index`,
@@ -134,6 +186,13 @@ teacherQuizzesRouter.get('/:id', requireTeacher, async (req, res) => {
       text: q.text,
       points: q.points,
       answers: optionsByQuestion.get(q.id) || [],
+      // Метаданные файла, если он прикреплён. Сами байты — только через /api/files.
+      file: q.file_name ? {
+        name: q.file_name,
+        mime: q.file_mime,
+        size: q.file_size,
+        url: `/api/files/question/${q.id}`,
+      } : null,
     }));
 
     res.json({ ...quizResult.rows[0], questions });
@@ -157,6 +216,10 @@ teacherQuizzesRouter.put('/:id', requireTeacher, async (req, res) => {
   }
   if (questions.length === 0) {
     return res.status(400).json({ error: 'Quiz must have at least one question' });
+  }
+  const validationError = validateQuestions(questions);
+  if (validationError) {
+    return res.status(400).json({ error: validationError });
   }
 
   // Проверяем владение и что квиз ещё черновик.
@@ -194,6 +257,9 @@ teacherQuizzesRouter.put('/:id', requireTeacher, async (req, res) => {
     res.json({ id: quizId });
   } catch (err) {
     await client.query('ROLLBACK');
+    if (err.code === 'FILE_TOO_LARGE') {
+      return res.status(400).json({ error: err.message });
+    }
     console.error('Update quiz failed:', err);
     res.status(500).json({ error: 'Internal error' });
   } finally {
@@ -204,7 +270,9 @@ teacherQuizzesRouter.put('/:id', requireTeacher, async (req, res) => {
 // POST /api/teacher/quizzes/:id/publish — публикация: генерим код, переводим в active.
 teacherQuizzesRouter.post('/:id/publish', requireTeacher, async (req, res) => {
   const quizId = Number(req.params.id);
-  const { deadline } = req.body ?? {};
+  const { deadline, show_answers } = req.body ?? {};
+  // Приводим к boolean: фронт может прислать undefined — тогда считаем false.
+  const showAnswers = Boolean(show_answers);
 
   if (!Number.isFinite(quizId)) {
     return res.status(400).json({ error: 'Invalid quiz id' });
@@ -218,10 +286,10 @@ teacherQuizzesRouter.post('/:id/publish', requireTeacher, async (req, res) => {
     try {
       const result = await pool.query(
         `UPDATE quizzes
-         SET status = 'active', share_code = $1, deadline = $2
-         WHERE id = $3 AND teacher_email = $4
-         RETURNING id, share_code, deadline, status`,
-        [code, deadline || null, quizId, req.user.email]
+         SET status = 'active', share_code = $1, deadline = $2, show_answers = $3
+         WHERE id = $4 AND teacher_email = $5
+         RETURNING id, share_code, deadline, status, show_answers`,
+        [code, deadline || null, showAnswers, quizId, req.user.email]
       );
       if (result.rowCount === 0) {
         // Либо квиза нет, либо он чужой — намеренно не различаем.
@@ -239,6 +307,62 @@ teacherQuizzesRouter.post('/:id/publish', requireTeacher, async (req, res) => {
   }
 
   res.status(500).json({ error: 'Failed to generate unique code' });
+});
+
+// DELETE /api/teacher/quizzes/:id — удаление квиза и всего связанного.
+// Каскад вручную: схема без ON DELETE, поэтому проходим по таблицам в правильном порядке.
+teacherQuizzesRouter.delete('/:id', requireTeacher, async (req, res) => {
+  const quizId = Number(req.params.id);
+  if (!Number.isFinite(quizId)) {
+    return res.status(400).json({ error: 'Invalid quiz id' });
+  }
+
+  // Сначала проверим владение, чтобы не удалять чужое и отвечать 404 правильно.
+  const check = await pool.query(
+    'SELECT id FROM quizzes WHERE id = $1 AND teacher_email = $2',
+    [quizId, req.user.email]
+  );
+  if (check.rowCount === 0) {
+    return res.status(404).json({ error: 'Quiz not found' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Удаляем глубже — selected_options зависят от student_answers.
+    await client.query(
+      `DELETE FROM selected_options
+       WHERE student_answer_id IN (
+         SELECT sa.id FROM student_answers sa
+         JOIN attempts a ON a.id = sa.attempt_id
+         WHERE a.quiz_id = $1
+       )`,
+      [quizId]
+    );
+    await client.query(
+      `DELETE FROM student_answers
+       WHERE attempt_id IN (SELECT id FROM attempts WHERE quiz_id = $1)`,
+      [quizId]
+    );
+    await client.query('DELETE FROM attempts WHERE quiz_id = $1', [quizId]);
+    await client.query(
+      `DELETE FROM answer_options
+       WHERE question_id IN (SELECT id FROM questions WHERE quiz_id = $1)`,
+      [quizId]
+    );
+    await client.query('DELETE FROM questions WHERE quiz_id = $1', [quizId]);
+    await client.query('DELETE FROM quizzes WHERE id = $1', [quizId]);
+
+    await client.query('COMMIT');
+    res.json({ ok: true });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Delete quiz failed:', err);
+    res.status(500).json({ error: 'Internal error' });
+  } finally {
+    client.release();
+  }
 });
 
 // GET /api/teacher/quizzes — список своих квизов с числом вопросов.

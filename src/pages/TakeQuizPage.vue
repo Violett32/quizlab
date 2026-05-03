@@ -10,6 +10,34 @@ const showResultModal = ref(false)
 const isReviewMode = ref(false)
 const resultScore = ref('')
 const loadError = ref('')
+// Учитель при публикации решает, можно ли студенту смотреть правильные ответы.
+// Узнаём это только из ответа submit — до этого момента false.
+const canShowAnswers = ref(false)
+
+// "1234567" -> "1.2 МБ" / "12 КБ"
+function formatBytes(n) {
+  if (!n) return ''
+  if (n >= 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} МБ`
+  if (n >= 1024) return `${Math.round(n / 1024)} КБ`
+  return `${n} Б`
+}
+
+// Открыть файл вопроса в новой вкладке. fetch с токеном → blob → URL.createObjectURL,
+// потому что <a href> не передаёт Authorization-заголовок.
+async function openQuestionFile() {
+  const url = currentQuestion.value?.file?.url
+  if (!url) return
+  try {
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('quizlab_token')}` },
+    })
+    if (!res.ok) throw new Error(`Failed to load file: ${res.status}`)
+    const blob = await res.blob()
+    window.open(URL.createObjectURL(blob), '_blank')
+  } catch (err) {
+    console.error('Failed to open question file:', err)
+  }
+}
 
 // Пустой каркас, чтобы шаблон рендерился до загрузки данных без ошибок.
 const quiz = ref({ title: '', questions: [] })
@@ -105,6 +133,28 @@ async function submitAttempt() {
       body: { answers: buildAnswersPayload() },
     })
     resultScore.value = `${data.score}/100`
+    canShowAnswers.value = !!data.show_answers
+    // Если разрешено — подмешиваем правильные ответы в загруженный квиз,
+    // чтобы шаблон в режиме review их подсветил.
+    if (data.show_answers && Array.isArray(data.answers)) {
+      const byQuestion = new Map(data.answers.map((a) => [a.question_id, a]))
+      quiz.value.questions = quiz.value.questions.map((q) => {
+        const info = byQuestion.get(q.id)
+        if (!info) return q
+        if (q.type === 'open') {
+          // Open-вопрос приходит с пустым answers — заполняем "правильными" псевдо-вариантами.
+          return {
+            ...q,
+            answers: (info.correct_texts || []).map((text, i) => ({ id: i, text, correct: true })),
+          }
+        }
+        const correctIds = new Set(info.correct_option_ids || [])
+        return {
+          ...q,
+          answers: q.answers.map((a) => ({ ...a, correct: correctIds.has(a.id) })),
+        }
+      })
+    }
     showResultModal.value = true
     if (timerId) clearInterval(timerId)
   } catch (err) {
@@ -235,8 +285,8 @@ onUnmounted(() => {
           <div v-else class="take-quiz__badge take-quiz__badge--placeholder" aria-hidden="true"></div>
         </div>
 
-        <a v-if="currentQuestion.file" href="#" class="take-quiz__file" @click.prevent>
-          {{ currentQuestion.file.name }} ({{ currentQuestion.file.size }})
+        <a v-if="currentQuestion.file" href="#" class="take-quiz__file" @click.prevent="openQuestionFile">
+          {{ currentQuestion.file.name }} ({{ formatBytes(currentQuestion.file.size) }})
         </a>
 
         <p class="take-quiz__hint">{{ hintText }}</p>
@@ -314,6 +364,7 @@ onUnmounted(() => {
     <QuizResultModal
       v-if="showResultModal"
       :score="resultScore"
+      :show-answers="canShowAnswers"
       @close="showResultModal = false"
       @home="onResultHome"
       @review="onResultReview"
@@ -647,6 +698,7 @@ onUnmounted(() => {
 
   .take-quiz__banner {
     max-width: none;
+    width: auto;
     margin: 0 20px;
     border-radius: 16px;
   }
@@ -683,6 +735,11 @@ onUnmounted(() => {
   .take-quiz__file {
     margin-top: 12px;
     font-size: var(--font-size-body-mob);
+    display: block;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .take-quiz__hint {

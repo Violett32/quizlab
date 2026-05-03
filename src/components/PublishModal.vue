@@ -51,7 +51,8 @@ const publish = () => {
   // datetime-local отдаёт строку без TZ ("2026-12-31T23:59") — Date парсит как локальное время,
   // toISOString() конвертирует в UTC. Бэк сохранит корректно с таймзоной.
   const iso = new Date(closeDate.value).toISOString()
-  emit('publish', { deadline: iso })
+  // 'open' = студенту разрешено видеть правильные ответы после прохождения.
+  emit('publish', { deadline: iso, show_answers: answerType.value === 'open' })
 }
 
 const copyCode = () => {

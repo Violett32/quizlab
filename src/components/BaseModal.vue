@@ -1,10 +1,20 @@
 <script setup>
 import { onMounted, onUnmounted } from 'vue'
 
+const props = defineProps({
+  // Если false — модалка не закрывается ни крестиком, ни ESC, ни кликом по подложке.
+  // Используется когда закрыть можно только через явные действия (например, экран результата).
+  dismissable: { type: Boolean, default: true },
+})
+
 const emit = defineEmits(['close'])
 
 const handleEsc = (e) => {
-  if (e.key === 'Escape') emit('close')
+  if (props.dismissable && e.key === 'Escape') emit('close')
+}
+
+const onBackdrop = () => {
+  if (props.dismissable) emit('close')
 }
 
 onMounted(() => {
@@ -19,11 +29,11 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="modal" @mousedown.self="emit('close')">
+  <div class="modal" @mousedown.self="onBackdrop">
     <div class="modal__box" @mousedown.stop>
       <div class="modal__circle modal__circle--tl"></div>
       <div class="modal__circle modal__circle--br"></div>
-      <button class="modal__close" @click="emit('close')" aria-label="Закрыть">
+      <button v-if="dismissable" class="modal__close" @click="emit('close')" aria-label="Закрыть">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
           <path d="M6 6L18 18M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         </svg>

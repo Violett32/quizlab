@@ -1,22 +1,39 @@
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import ResultItem from '@/components/ResultItem.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import { loadStudentAttempts } from '@/api/student.js'
 
 const router = useRouter()
+const route = useRoute()
 
-//заменить на данные из БД
-const results = ref([
-  { title: 'Знание языка Java', duration: '10:34', score: '78/100', action: 'Пройти заново' },
-  { title: 'Алгоритмы и структуры данных', duration: '15:55', score: '77/100', action: 'Тест закрыт', disabled: true },
-  { title: 'Информационная безопасность', duration: '45:52', score: '10/100', action: 'Пройти заново' },
-  { title: 'Дискретная математика', duration: '43:16', score: '20/100', action: 'Пройти заново' },
-  { title: 'Основы веб-разработки', duration: '05:55', score: '100/100', action: 'Тест закрыт', disabled: true },
-  { title: 'Знание языка Java', duration: '30:44', score: '0/100', action: 'Пройти заново' },
-  { title: 'Информационная безопасность', duration: '45:52', score: '10/100', action: 'Пройти заново' },
-  { title: 'Дискретная математика', duration: '43:16', score: '20/100', action: 'Пройти заново' }
-])
+const allResults = ref([])
+
+// Если в URL есть ?quiz=N — показываем результаты только этого квиза.
+const filterQuizId = computed(() => {
+  const v = Number(route.query.quiz)
+  return Number.isFinite(v) && v > 0 ? v : null
+})
+
+const results = computed(() =>
+  filterQuizId.value
+    ? allResults.value.filter((r) => r.quizId === filterQuizId.value)
+    : allResults.value
+)
+
+onMounted(async () => {
+  try {
+    const data = await loadStudentAttempts()
+    allResults.value = data.results
+  } catch (err) {
+    console.error('Failed to load student results:', err)
+  }
+})
+
+const onAction = (quizId) => {
+  router.push(`/quiz/${quizId}`)
+}
 
 const goBack = () => {
   router.back()
@@ -34,14 +51,15 @@ const goBack = () => {
 
     <div v-if="results.length" class="results-page__list">
       <ResultItem
-        v-for="(r, i) in results"
-        :key="i"
+        v-for="r in results"
+        :key="r.id"
         :title="r.title"
         :duration="r.duration"
         :score="r.score"
         :truncate="false"
-        :action-label="r.action"
-        :action-disabled="r.disabled"
+        :action-label="r.actionLabel"
+        :action-disabled="r.actionDisabled"
+        @action="onAction(r.quizId)"
       />
     </div>
     <EmptyState v-else text="У вас пока нет результатов" />

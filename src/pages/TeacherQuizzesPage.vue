@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import QuizCard from '@/components/QuizCard.vue'
 import PublishModal from '@/components/PublishModal.vue'
+import DeleteQuizModal from '@/components/DeleteQuizModal.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { loadTeacherQuizzes } from '@/api/teacher.js'
 import { apiFetch } from '@/api/client.js'
@@ -48,6 +49,36 @@ const onPublish = async ({ deadline }) => {
   }
 }
 
+// Состояние удаления.
+const deletingId = ref(null)
+const isDeleteLoading = ref(false)
+const deleteError = ref('')
+
+const startDelete = (id) => {
+  deletingId.value = id
+  deleteError.value = ''
+}
+
+const cancelDelete = () => {
+  deletingId.value = null
+  deleteError.value = ''
+}
+
+const confirmDelete = async () => {
+  if (!deletingId.value) return
+  isDeleteLoading.value = true
+  deleteError.value = ''
+  try {
+    await apiFetch(`/api/teacher/quizzes/${deletingId.value}`, { method: 'DELETE' })
+    deletingId.value = null
+    quizzes.value = await loadTeacherQuizzes()
+  } catch (err) {
+    deleteError.value = err.message || 'Не удалось удалить квиз'
+  } finally {
+    isDeleteLoading.value = false
+  }
+}
+
 const goBack = () => {
   router.back()
 }
@@ -59,7 +90,7 @@ const goBack = () => {
       <button type="button" class="quizzes-page__back" @click="goBack" aria-label="Назад">
         <img src="@/assets/icons/arrow.svg" alt="" class="quizzes-page__back-icon">
       </button>
-      <h1 class="quizzes-page__title">Мои квизы</h1>
+      <h1 class="quizzes-page__title">Квизы</h1>
     </div>
 
     <div v-if="quizzes.length" class="quizzes-page__grid">
@@ -75,6 +106,7 @@ const goBack = () => {
         :code="q.code"
         @publish="startPublish(q.id)"
         @edit="router.push(`/create?edit=${q.id}`)"
+        @delete="startDelete(q.id)"
       />
     </div>
     <EmptyState v-else text="У вас пока нет квизов" />
@@ -86,6 +118,15 @@ const goBack = () => {
       :error="publishError"
       @close="publishingId = null"
       @publish="onPublish"
+    />
+
+    <DeleteQuizModal
+      v-if="deletingId"
+      :is-loading="isDeleteLoading"
+      :error="deleteError"
+      @close="cancelDelete"
+      @home="cancelDelete"
+      @confirm="confirmDelete"
     />
   </div>
 </template>

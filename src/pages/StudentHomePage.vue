@@ -1,14 +1,43 @@
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import ResultItem from '@/components/ResultItem.vue'
 import QuizCard from '@/components/QuizCard.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { useAuth } from '@/composables/useAuth.js'
 import { apiFetch } from '@/api/client.js'
+import { loadStudentAttempts } from '@/api/student.js'
 
 const router = useRouter()
-const { user, logout: authLogout } = useAuth()
+const { user, logout: authLogout, uploadAvatar } = useAuth()
+
+const MAX_AVATAR_BYTES = 2 * 1024 * 1024 // 2 МБ
+const avatarInputRef = ref(null)
+const avatarError = ref('')
+
+const openAvatarPicker = () => {
+  avatarError.value = ''
+  avatarInputRef.value?.click()
+}
+
+const onAvatarSelected = async (e) => {
+  const file = e.target.files?.[0]
+  e.target.value = ''
+  if (!file) return
+  if (!file.type.startsWith('image/')) {
+    avatarError.value = 'Файл должен быть изображением'
+    return
+  }
+  if (file.size > MAX_AVATAR_BYTES) {
+    avatarError.value = 'Аватар больше 2 МБ'
+    return
+  }
+  try {
+    await uploadAvatar(file)
+  } catch (err) {
+    avatarError.value = err.message || 'Не удалось загрузить'
+  }
+}
 
 const quizCode = ref('')
 const joinError = ref('')
@@ -22,23 +51,26 @@ watch(quizCode, () => {
   if (joinError.value) joinError.value = ''
 })
 
-const results = ref([
-  { title: 'Знание языка Java', duration: '10:34', score: '78/100' },
-  { title: 'Знание языка Java', duration: '22:04', score: '10/100' },
-  { title: 'Алгоритмы и структуры данных', duration: '42:56', score: '64/100' },
-  { title: 'Информатика', duration: '24:10', score: '85/100' },
-  { title: 'Операционные системы', duration: '18:30', score: '42/100' },
-  { title: 'Дискретная математика', duration: '32:12', score: '73/100' },
-  { title: 'Информатика', duration: '24:10', score: '12/100' },
-  { title: 'Алгоритмы и структуры данных', duration: '42:56', score: '55/100' }
-])
+// Превью — берём первые несколько записей. Полные списки на /results и /quizzes.
+const RESULTS_PREVIEW = 6
+const QUIZZES_PREVIEW = 4
 
-const quizzes = ref([
-  { id: 1, title: 'Знание языка Java', questions: 100, duration: '30 минут', openUntil: '10.08.26', status: 'open' },
-  { id: 2, title: 'Информационная безопасность', questions: 80, duration: '20 минут', openUntil: '05.08.26', status: 'closed' },
-  { id: 3, title: 'Основы разработки', questions: 60, duration: '25 минут', openUntil: '12.08.26', status: 'open' },
-  { id: 4, title: 'Алгоритмы и структуры данных', questions: 120, duration: '40 минут', openUntil: '20.08.26', status: 'closed' }
-])
+const results = ref([])
+const quizzes = ref([])
+
+onMounted(async () => {
+  try {
+    const data = await loadStudentAttempts()
+    results.value = data.results.slice(0, RESULTS_PREVIEW)
+    quizzes.value = data.quizzes.slice(0, QUIZZES_PREVIEW)
+  } catch (err) {
+    console.error('Failed to load student attempts:', err)
+  }
+})
+
+const onResultAction = (quizId) => {
+  router.push(`/quiz/${quizId}`)
+}
 
 const joinQuiz = async () => {
   joinError.value = ''
@@ -87,10 +119,18 @@ const logout = () => {
     <section class="profile-hero">
       <img src="@/assets/images/hero-bg.png" alt="" class="profile-hero__bg">
       <div class="profile-hero__content">
-        <div class="profile__photo">
+        <div class="profile__photo" @click="openAvatarPicker" role="button" tabindex="0">
           <img v-if="user.avatar" :src="user.avatar" alt="" class="profile__photo-img">
           <img v-else src="@/assets/icons/add.svg" alt="" class="profile__photo-add">
+          <input
+            ref="avatarInputRef"
+            type="file"
+            accept="image/*"
+            class="profile__photo-input"
+            @change="onAvatarSelected"
+          />
         </div>
+        <p v-if="avatarError" class="profile__avatar-error">{{ avatarError }}</p>
         <h2 class="profile__name">{{ user.name }}</h2>
         <p class="profile__email">{{ user.email }}</p>
         <div class="profile__role-id">
@@ -103,17 +143,16 @@ const logout = () => {
 
     <section class="columns container">
       <div class="column">
-        <h3 class="column__title">Мои результаты</h3>
+        <h3 class="column__title">Результаты</h3>
         <p class="column__desc">Отслеживайте свой прогресс: результаты, время прохождения и подробная статистика по каждому квизу.</p>
         <template v-if="results.length">
           <div class="column__list">
             <ResultItem
-              v-for="(r, i) in results"
-              :key="i"
+              v-for="r in results"
+              :key="r.id"
               :title="r.title"
               :duration="r.duration"
               :score="r.score"
-              :date="r.date"
               class="column__result-link"
               @click="router.push('/results')"
             />
@@ -124,7 +163,7 @@ const logout = () => {
       </div>
 
       <div class="column">
-        <h3 class="column__title">Пройденные квизы</h3>
+        <h3 class="column__title">Квизы</h3>
         <p class="column__desc">Список всех квизов, которые вы проходили. Доступные можно пройти повторно.</p>
         <template v-if="quizzes.length">
           <div class="column__grid">
@@ -138,6 +177,8 @@ const logout = () => {
               :status="q.status"
               class="column__quiz-link"
               @click="router.push('/quizzes')"
+              @start="router.push(`/quiz/${q.id}`)"
+              @results="router.push(`/results?quiz=${q.id}`)"
             />
           </div>
           <button type="button" class="btn btn-lg column__more" @click="router.push('/quizzes')">Посмотреть все</button>
@@ -262,6 +303,23 @@ const logout = () => {
   align-items: center;
   justify-content: center;
   margin-bottom: 12px;
+  cursor: pointer;
+  overflow: hidden;
+  transition: opacity 0.2s ease;
+}
+
+.profile__photo:hover {
+  opacity: 0.85;
+}
+
+.profile__photo-input {
+  display: none;
+}
+
+.profile__avatar-error {
+  margin: 0 0 8px;
+  font-size: var(--font-size-body);
+  color: var(--color-accent2);
 }
 
 .profile__photo-img {

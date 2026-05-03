@@ -1,54 +1,21 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import EmptyState from '@/components/EmptyState.vue'
+import { loadTeacherResults } from '@/api/teacher.js'
 
 const router = useRouter()
 
-const quizResults = ref([
-  {
-    quiz: 'Знание языка Java',
-    students: [
-      { name: 'Иванов Дмитрий', isu: '341205', score: '78/100' },
-      { name: 'Петрова Анна', isu: '356821', score: '45/100' },
-      { name: 'Козлов Максим', isu: '312490', score: '92/100' },
-      { name: 'Смирнова Елена', isu: '367412', score: '30/100' },
-      { name: 'Волков Артём', isu: '389201', score: '61/100' },
-      { name: 'Новикова Мария', isu: '345678', score: '88/100' },
-      { name: 'Морозов Кирилл', isu: '378345', score: '15/100' },
-      { name: 'Фёдорова Дарья', isu: '390112', score: '54/100' },
-      { name: 'Иванов Дмитрий', isu: '341205', score: '78/100' },
-      { name: 'Петрова Анна', isu: '356821', score: '45/100' },
-      { name: 'Козлов Максим', isu: '312490', score: '92/100' },
-      { name: 'Смирнова Елена', isu: '367412', score: '30/100' },
-      { name: 'Волков Артём', isu: '389201', score: '61/100' },
-      { name: 'Новикова Мария', isu: '345678', score: '88/100' },
-      { name: 'Морозов Кирилл', isu: '378345', score: '15/100' },
-      { name: 'Фёдорова Дарья', isu: '390112', score: '54/100' }
-    ]
-  },
-  {
-    quiz: 'Алгоритмы и структуры данных',
-    students: [
-      { name: 'Горелова Виктория', isu: '367910', score: '30/100' },
-      { name: 'Лебедев Никита', isu: '354201', score: '67/100' },
-      { name: 'Соколова Полина', isu: '321087', score: '78/100' },
-      { name: 'Кузнецов Иван', isu: '398456', score: '42/100' },
-      { name: 'Попова Алиса', isu: '310234', score: '91/100' },
-      { name: 'Михайлов Егор', isu: '375690', score: '28/100' },
-      { name: 'Андреева Софья', isu: '362178', score: '55/100' },
-      { name: 'Орлов Роман', isu: '348901', score: '73/100' },
-      { name: 'Горелова Виктория', isu: '367910', score: '30/100' },
-      { name: 'Лебедев Никита', isu: '354201', score: '67/100' },
-      { name: 'Соколова Полина', isu: '321087', score: '78/100' },
-      { name: 'Кузнецов Иван', isu: '398456', score: '42/100' },
-      { name: 'Попова Алиса', isu: '310234', score: '91/100' },
-      { name: 'Михайлов Егор', isu: '375690', score: '28/100' },
-      { name: 'Андреева Софья', isu: '362178', score: '55/100' },
-      { name: 'Орлов Роман', isu: '348901', score: '73/100' }
-    ]
+const quizResults = ref([])
+
+onMounted(async () => {
+  try {
+    const data = await loadTeacherResults()
+    quizResults.value = data.byQuiz
+  } catch (err) {
+    console.error('Failed to load teacher results:', err)
   }
-])
+})
 
 const scoreColor = (score) => {
   const [got, total] = score.split('/').map(Number)
@@ -71,12 +38,12 @@ const goBack = () => {
     </div>
 
     <div v-if="quizResults.length" class="teacher-results__columns">
-      <div v-for="(q, qi) in quizResults" :key="qi" class="teacher-results__column">
+      <div v-for="q in quizResults" :key="q.quizId" class="teacher-results__column">
         <h3 class="teacher-results__quiz-name">{{ q.quiz }}</h3>
         <div class="teacher-results__list">
           <div
-            v-for="(s, si) in q.students"
-            :key="si"
+            v-for="s in q.students"
+            :key="s.attemptId"
             class="student-row"
           >
             <span class="student-row__name">{{ s.name }}</span>

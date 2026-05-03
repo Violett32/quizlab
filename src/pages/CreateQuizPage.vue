@@ -30,6 +30,7 @@ const createEmptyQuestion = (type = 'single') => ({
   id: nextQuestionId++,
   type,
   text: '',
+  file: null, // { name, mime, size, base64 } если прикреплён
   answers: type === 'open' ? [] : [
     { id: nextAnswerId++, text: '', correct: false },
     { id: nextAnswerId++, text: '', correct: false },
@@ -37,6 +38,71 @@ const createEmptyQuestion = (type = 'single') => ({
     { id: nextAnswerId++, text: '', correct: false }
   ]
 })
+
+// Лимит файла на стороне фронта: исходный (не base64) размер.
+const MAX_FILE_BYTES = 10 * 1024 * 1024 // 10 МБ
+const fileError = ref('')
+const fileInputRef = ref(null)
+
+// "1234567" -> "1.2 МБ" / "12 КБ"
+function formatBytes(n) {
+  if (n >= 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} МБ`
+  if (n >= 1024) return `${Math.round(n / 1024)} КБ`
+  return `${n} Б`
+}
+
+// Из имени "report.pdf" -> "PDF"; если расширения нет — пусто.
+function fileExt(name) {
+  if (!name) return ''
+  const i = name.lastIndexOf('.')
+  return i < 0 ? '' : name.slice(i + 1).toUpperCase()
+}
+
+const openFilePicker = () => {
+  fileError.value = ''
+  fileInputRef.value?.click()
+}
+
+// FileReader → base64 без префикса "data:...;base64,".
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const str = reader.result || ''
+      const comma = str.indexOf(',')
+      resolve(comma >= 0 ? str.slice(comma + 1) : str)
+    }
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
+}
+
+const onFileSelected = async (e) => {
+  const file = e.target.files?.[0]
+  e.target.value = '' // чтобы повторный выбор того же файла триггерил change
+  if (!file) return
+  if (file.size > MAX_FILE_BYTES) {
+    fileError.value = 'Файл больше 10 МБ'
+    return
+  }
+  try {
+    const base64 = await readFileAsBase64(file)
+    activeQuestion.value.file = {
+      name: file.name,
+      mime: file.type || 'application/octet-stream',
+      size: file.size,
+      base64,
+    }
+  } catch (err) {
+    fileError.value = 'Не удалось прочитать файл'
+    console.error(err)
+  }
+}
+
+const removeFile = () => {
+  activeQuestion.value.file = null
+  fileError.value = ''
+}
 
 const questions = ref([createEmptyQuestion(initialType)])
 const activeQuestionId = ref(questions.value[0].id)
@@ -151,17 +217,39 @@ const draftKey = computed(() =>
 )
 
 // Превращает массив вопросов из формы во внутренний формат с локальными id.
+// Файл здесь приходит как { name, mime, size, url } (без base64) — base64 подгружаем отдельно.
 function toFormQuestions(list) {
   return list.map((q) => ({
     id: nextQuestionId++,
     type: q.type,
     text: q.text || '',
+    file: q.file ? { ...q.file } : null,
     answers: (q.answers || []).map((a) => ({
       id: nextAnswerId++,
       text: a.text || '',
       correct: !!a.correct,
     })),
   }))
+}
+
+// Скачивает байты файла по url и кладёт base64 рядом с метаданными.
+// Нужно потому что PUT квиза пересоздаёт вопросы — без base64 файл потеряется.
+async function fetchFileBase64(url) {
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${localStorage.getItem('quizlab_token')}` },
+  })
+  if (!res.ok) throw new Error(`Failed to fetch file: ${res.status}`)
+  const blob = await res.blob()
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const str = reader.result || ''
+      const comma = str.indexOf(',')
+      resolve(comma >= 0 ? str.slice(comma + 1) : str)
+    }
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(blob)
+  })
 }
 
 onMounted(async () => {
@@ -174,6 +262,17 @@ onMounted(async () => {
     initialPassingScore.value = data.passing_score
     questions.value = toFormQuestions(data.questions)
     activeQuestionId.value = questions.value[0]?.id
+
+    // Подгружаем base64 для уже сохранённых файлов — параллельно, чтобы не задерживать рендер.
+    questions.value.forEach(async (q) => {
+      if (q.file?.url && !q.file.base64) {
+        try {
+          q.file.base64 = await fetchFileBase64(q.file.url)
+        } catch (err) {
+          console.error('Failed to fetch existing file:', err)
+        }
+      }
+    })
   } catch (err) {
     console.error('Failed to load quiz for editing:', err)
     return
@@ -223,12 +322,44 @@ const buildPayload = (settings) => ({
   questions: questions.value.map((q) => ({
     type: q.type,
     text: q.text,
+    // Файл шлём только если есть base64 (новый или подгруженный из существующего).
+    file: q.file?.base64
+      ? { name: q.file.name, mime: q.file.mime, base64: q.file.base64 }
+      : null,
     answers: q.answers.map((a) => ({ text: a.text, correct: a.correct })),
   })),
 })
 
+// Ищет первый вопрос без правильного ответа. Возвращает его и человеческое описание проблемы.
+function findQuestionWithoutCorrect() {
+  for (let i = 0; i < questions.value.length; i++) {
+    const q = questions.value[i]
+    const hasCorrect = q.type === 'open'
+      ? q.answers.some((a) => a.correct && (a.text || '').trim())
+      : q.answers.some((a) => a.correct)
+    if (!hasCorrect) {
+      return {
+        question: q,
+        index: i + 1,
+        message: q.type === 'open'
+          ? `Вопрос ${i + 1}: добавьте хотя бы один правильный ответ`
+          : `Вопрос ${i + 1}: отметьте хотя бы один правильный ответ`,
+      }
+    }
+  }
+  return null
+}
+
 const onSaveQuiz = async (settings) => {
   saveError.value = ''
+
+  const invalid = findQuestionWithoutCorrect()
+  if (invalid) {
+    activeQuestionId.value = invalid.question.id
+    saveError.value = invalid.message
+    return
+  }
+
   isSaveLoading.value = true
   try {
     const url = editingId.value
@@ -257,13 +388,13 @@ const onHomeFromSave = () => {
   router.push('/teacher')
 }
 
-const onPublish = async ({ deadline }) => {
+const onPublish = async ({ deadline, show_answers }) => {
   publishError.value = ''
   isPublishLoading.value = true
   try {
     const data = await apiFetch(`/api/teacher/quizzes/${quizId.value}/publish`, {
       method: 'POST',
-      body: { deadline: deadline || null },
+      body: { deadline: deadline || null, show_answers },
     })
     shareCode.value = data.share_code
   } catch (err) {
@@ -335,10 +466,31 @@ const onPublish = async ({ deadline }) => {
             ></textarea>
           </div>
 
-          <button type="button" class="create-quiz__add-btn">
+          <input
+            ref="fileInputRef"
+            type="file"
+            class="create-quiz__file-input"
+            @change="onFileSelected"
+          />
+          <template v-if="activeQuestion.file">
+            <div class="create-quiz__file-info">
+              <span class="create-quiz__file-name">{{ activeQuestion.file.name }}</span>
+              <span class="create-quiz__file-meta">
+                {{ fileExt(activeQuestion.file.name) }} · {{ formatBytes(activeQuestion.file.size) }}
+              </span>
+              <button
+                type="button"
+                class="create-quiz__file-remove"
+                aria-label="Удалить файл"
+                @click="removeFile"
+              >×</button>
+            </div>
+          </template>
+          <button v-else type="button" class="create-quiz__add-btn" @click="openFilePicker">
             <img src="@/assets/icons/add-btn.svg" alt="" class="create-quiz__add-btn-icon">
             Файл
           </button>
+          <p v-if="fileError" class="create-quiz__file-error">{{ fileError }}</p>
 
           <p class="create-quiz__hint">{{ hintText }}</p>
 
@@ -629,6 +781,58 @@ const onPublish = async ({ deadline }) => {
 
 .create-quiz__add-btn--question {
   align-self: center;
+}
+
+.create-quiz__file-input {
+  display: none;
+}
+
+.create-quiz__file-info {
+  margin-top: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-family-btn);
+  font-size: var(--font-size-btn);
+  font-weight: var(--font-weight-btn);
+  color: var(--color-accent);
+  max-width: 100%;
+}
+
+.create-quiz__file-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 280px;
+}
+
+.create-quiz__file-meta {
+  white-space: nowrap;
+  opacity: 0.7;
+}
+
+.create-quiz__file-remove {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: none;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--color-accent);
+  cursor: pointer;
+  padding: 0;
+  transition: opacity 0.2s ease;
+}
+
+.create-quiz__file-remove:hover {
+  opacity: 0.6;
+}
+
+.create-quiz__file-error {
+  margin-top: 8px;
+  font-size: var(--font-size-body);
+  color: var(--color-accent2);
+  text-align: center;
 }
 
 .create-quiz__hint {
@@ -988,6 +1192,28 @@ const onPublish = async ({ deadline }) => {
   .answer-delete__icon {
     width: 22px;
     height: 22px;
+  }
+
+  .create-quiz__file-info {
+    width: 100%;
+    max-width: 100%;
+    font-size: var(--font-size-btn-mob);
+    gap: 6px;
+  }
+
+  .create-quiz__file-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: none;
+  }
+
+  .create-quiz__file-meta,
+  .create-quiz__file-remove {
+    flex-shrink: 0;
+  }
+
+  .create-quiz__file-error {
+    font-size: var(--font-size-body-mob);
   }
 
   .create-quiz__open {

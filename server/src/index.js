@@ -2,10 +2,14 @@ import express from 'express';
 import { pool } from './db.js';
 import { authRouter } from './auth.js';
 import { teacherQuizzesRouter } from './quizzes.js';
+import { teacherRouter } from './teacher.js';
 import { studentRouter } from './student.js';
+import { filesRouter } from './files.js';
 
 const app = express();
-app.use(express.json()); // понимаем JSON в теле POST/PUT-запросов
+// Поднимаем лимит до 20 МБ: файлы вопросов приходят base64 в JSON,
+// и 10 МБ исходного файла после base64 раздуваются примерно до 13.3 МБ.
+app.use(express.json({ limit: '20mb' }));
 
 // Роуты авторизации.
 app.use('/api/auth', authRouter);
@@ -13,8 +17,14 @@ app.use('/api/auth', authRouter);
 // Роуты учителя для квизов.
 app.use('/api/teacher/quizzes', teacherQuizzesRouter);
 
+// Прочие роуты учителя (результаты студентов и т.п.).
+app.use('/api/teacher', teacherRouter);
+
 // Роуты студента.
 app.use('/api/student', studentRouter);
+
+// Файлы вопросов (общая ручка для учителя и студента).
+app.use('/api/files', filesRouter);
 
 // Проверка здоровья: пингуем базу и отвечаем, всё ли ок.
 app.get('/api/health', async (req, res) => {

@@ -5,9 +5,10 @@ import ResultItem from '@/components/ResultItem.vue'
 import QuizCard from '@/components/QuizCard.vue'
 import PublishModal from '@/components/PublishModal.vue'
 import QuestionTypeModal from '@/components/QuestionTypeModal.vue'
+import DeleteQuizModal from '@/components/DeleteQuizModal.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { useAuth } from '@/composables/useAuth.js'
-import { loadTeacherQuizzes } from '@/api/teacher.js'
+import { loadTeacherQuizzes, loadTeacherResults } from '@/api/teacher.js'
 import { apiFetch } from '@/api/client.js'
 
 const router = useRouter()
@@ -23,6 +24,36 @@ const startPublish = (id) => {
   publishingId.value = id
   publishShareCode.value = null
   publishError.value = ''
+}
+
+// Состояние удаления.
+const deletingId = ref(null)
+const isDeleteLoading = ref(false)
+const deleteError = ref('')
+
+const startDelete = (id) => {
+  deletingId.value = id
+  deleteError.value = ''
+}
+
+const cancelDelete = () => {
+  deletingId.value = null
+  deleteError.value = ''
+}
+
+const confirmDelete = async () => {
+  if (!deletingId.value) return
+  isDeleteLoading.value = true
+  deleteError.value = ''
+  try {
+    await apiFetch(`/api/teacher/quizzes/${deletingId.value}`, { method: 'DELETE' })
+    deletingId.value = null
+    quizzes.value = await loadTeacherQuizzes()
+  } catch (err) {
+    deleteError.value = err.message || 'Не удалось удалить квиз'
+  } finally {
+    isDeleteLoading.value = false
+  }
 }
 
 const onPublish = async ({ deadline }) => {
@@ -43,24 +74,52 @@ const onPublish = async ({ deadline }) => {
   }
 }
 
-const { user, logout: authLogout } = useAuth()
+const { user, logout: authLogout, uploadAvatar } = useAuth()
 
-const results = ref([
-  { title: 'Знание языка Java', score: '78/100', people: 24 },
-  { title: 'Алгоритмы и структуры данных', score: '77/100', people: 18 },
-  { title: 'Информационная безопасность', score: '10/100', people: 31 },
-  { title: 'Операционные системы', score: '80/100', people: 12 },
-  { title: 'Дискретная математика', score: '18/100', people: 9 },
-  { title: 'Основы веб-разработки', score: '20/100', people: 15 }
-])
+const MAX_AVATAR_BYTES = 2 * 1024 * 1024 // 2 МБ
+const avatarInputRef = ref(null)
+const avatarError = ref('')
 
+const openAvatarPicker = () => {
+  avatarError.value = ''
+  avatarInputRef.value?.click()
+}
+
+const onAvatarSelected = async (e) => {
+  const file = e.target.files?.[0]
+  e.target.value = ''
+  if (!file) return
+  if (!file.type.startsWith('image/')) {
+    avatarError.value = 'Файл должен быть изображением'
+    return
+  }
+  if (file.size > MAX_AVATAR_BYTES) {
+    avatarError.value = 'Аватар больше 2 МБ'
+    return
+  }
+  try {
+    await uploadAvatar(file)
+  } catch (err) {
+    avatarError.value = err.message || 'Не удалось загрузить'
+  }
+}
+
+// Превью — берём первые несколько. Полные списки на /teacher/results и /teacher/quizzes.
+const RESULTS_PREVIEW = 6
+
+const results = ref([])
 const quizzes = ref([])
 
 onMounted(async () => {
   try {
-    quizzes.value = await loadTeacherQuizzes()
+    const [quizList, resultsData] = await Promise.all([
+      loadTeacherQuizzes(),
+      loadTeacherResults(),
+    ])
+    quizzes.value = quizList
+    results.value = resultsData.summaries.slice(0, RESULTS_PREVIEW)
   } catch (err) {
-    console.error('Failed to load quizzes:', err)
+    console.error('Failed to load teacher home data:', err)
   }
 })
 
@@ -86,10 +145,18 @@ const onQuestionTypeSelect = (type) => {
     <section class="profile-hero">
       <img src="@/assets/images/hero-bg.png" alt="" class="profile-hero__bg">
       <div class="profile-hero__content">
-        <div class="profile__photo">
+        <div class="profile__photo" @click="openAvatarPicker" role="button" tabindex="0">
           <img v-if="user.avatar" :src="user.avatar" alt="" class="profile__photo-img">
           <img v-else src="@/assets/icons/add.svg" alt="" class="profile__photo-add">
+          <input
+            ref="avatarInputRef"
+            type="file"
+            accept="image/*"
+            class="profile__photo-input"
+            @change="onAvatarSelected"
+          />
         </div>
+        <p v-if="avatarError" class="profile__avatar-error">{{ avatarError }}</p>
         <h2 class="profile__name">{{ user.name }}</h2>
         <p class="profile__email">{{ user.email }}</p>
         <div class="profile__role-id">
@@ -102,15 +169,15 @@ const onQuestionTypeSelect = (type) => {
 
     <section class="columns container">
       <div class="column">
-        <h3 class="column__title">Результаты студентов</h3>
+        <h3 class="column__title">Результаты</h3>
         <p class="column__desc">Отслеживайте успеваемость студентов в одном месте: средний балл<br>и количество прошедших по каждому квизу.</p>
         <template v-if="results.length">
           <div class="column__list">
             <ResultItem
-              v-for="(r, i) in results"
-              :key="i"
+              v-for="r in results"
+              :key="r.quizId"
               :title="r.title"
-              :score="r.score"
+              :score="r.avgScore"
               :people="r.people"
               class="column__result-link"
               @click="router.push('/teacher/results')"
@@ -122,7 +189,7 @@ const onQuestionTypeSelect = (type) => {
       </div>
 
       <div class="column">
-        <h3 class="column__title">Созданные квизы</h3>
+        <h3 class="column__title">Квизы</h3>
         <p class="column__desc">Управляйте своими квизами: редактирование, настройка доступа<br>и отслеживание статуса.</p>
         <template v-if="quizzes.length">
           <div class="column__grid">
@@ -140,6 +207,7 @@ const onQuestionTypeSelect = (type) => {
               @click="router.push('/teacher/quizzes')"
               @publish="startPublish(q.id)"
               @edit="router.push(`/create?edit=${q.id}`)"
+              @delete="startDelete(q.id)"
             />
           </div>
           <button type="button" class="btn btn-lg column__more" @click="router.push('/teacher/quizzes')">Посмотреть все</button>
@@ -157,6 +225,15 @@ const onQuestionTypeSelect = (type) => {
       @publish="onPublish"
     />
     <QuestionTypeModal v-if="showCreateQuestion" @close="showCreateQuestion = false" @select="onQuestionTypeSelect" />
+
+    <DeleteQuizModal
+      v-if="deletingId"
+      :is-loading="isDeleteLoading"
+      :error="deleteError"
+      @close="cancelDelete"
+      @home="cancelDelete"
+      @confirm="confirmDelete"
+    />
   </div>
 </template>
 
@@ -217,6 +294,23 @@ const onQuestionTypeSelect = (type) => {
   align-items: center;
   justify-content: center;
   margin-bottom: 12px;
+  cursor: pointer;
+  overflow: hidden;
+  transition: opacity 0.2s ease;
+}
+
+.profile__photo:hover {
+  opacity: 0.85;
+}
+
+.profile__photo-input {
+  display: none;
+}
+
+.profile__avatar-error {
+  margin: 0 0 8px;
+  font-size: var(--font-size-body);
+  color: var(--color-accent2);
 }
 
 .profile__photo-img {

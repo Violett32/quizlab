@@ -37,3 +37,50 @@ export async function loadTeacherQuizzes() {
   const data = await apiFetch('/api/teacher/quizzes')
   return data.quizzes.map(transformQuiz)
 }
+
+// Загружает все попытки по квизам учителя и собирает два формата:
+// - summaries: для превью на TeacherHomePage (на квиз — средний балл и число студентов)
+// - byQuiz:    для TeacherResultsPage (на квиз — список попыток с именем/ИСУ/баллом)
+export async function loadTeacherResults() {
+  const data = await apiFetch('/api/teacher/results')
+  const attempts = data.attempts || []
+
+  // Группируем по quiz_id, сохраняя порядок первого вхождения
+  // (бэк уже отсортировал: новые квизы сверху, попытки внутри — по started_at DESC).
+  const groups = new Map()
+  for (const a of attempts) {
+    if (!groups.has(a.quiz_id)) {
+      groups.set(a.quiz_id, { quizId: a.quiz_id, title: a.quiz_title, attempts: [] })
+    }
+    groups.get(a.quiz_id).attempts.push(a)
+  }
+
+  const summaries = []
+  const byQuiz = []
+  for (const g of groups.values()) {
+    const sumScores = g.attempts.reduce((acc, a) => acc + (a.score ?? 0), 0)
+    const avg = Math.round(sumScores / g.attempts.length)
+    // Уникальные студенты — считаем по email.
+    const uniqueStudents = new Set(g.attempts.map((a) => a.student_email)).size
+
+    summaries.push({
+      quizId: g.quizId,
+      title: g.title,
+      avgScore: `${avg}/100`,
+      people: uniqueStudents,
+    })
+
+    byQuiz.push({
+      quizId: g.quizId,
+      quiz: g.title,
+      students: g.attempts.map((a) => ({
+        attemptId: a.id,
+        name: a.student_name,
+        isu: a.student_isu,
+        score: `${a.score ?? 0}/100`,
+      })),
+    })
+  }
+
+  return { summaries, byQuiz }
+}
