@@ -45,3 +45,7 @@ __screenshots__/
 .env
 .env.local
 .env.*.local
+
+# Локальные заметки и техзадание — не коммитим
+README.md
+BACKEND_TASKS.md
