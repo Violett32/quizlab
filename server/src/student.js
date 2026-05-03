@@ -18,6 +18,7 @@ studentRouter.get('/attempts', requireStudent, async (req, res) => {
               q.time_limit    AS quiz_time_limit,
               q.deadline      AS quiz_deadline,
               q.status        AS quiz_status,
+              q.passing_score AS quiz_passing_score,
               (SELECT COUNT(*)::int FROM questions WHERE quiz_id = q.id) AS quiz_question_count
        FROM attempts a
        JOIN quizzes q ON q.id = a.quiz_id

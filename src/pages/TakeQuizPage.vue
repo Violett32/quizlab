@@ -83,38 +83,18 @@ const hintText = computed(() => {
   return 'Отметьте правильный'
 })
 
+// Один ответ на open-вопрос: { [qId]: 'строка' }.
 const openAnswers = ref({})
-const newOpenAnswer = ref('')
 
-const confirmOpenAnswer = () => {
-  const t = newOpenAnswer.value.trim()
-  if (!t) return
-  const qId = currentQuestion.value.id
-  const arr = openAnswers.value[qId] || []
-  openAnswers.value = { ...openAnswers.value, [qId]: [...arr, t] }
-  newOpenAnswer.value = ''
+const setOpenAnswer = (qId, value) => {
+  openAnswers.value = { ...openAnswers.value, [qId]: value }
 }
-
-const removeOpenAnswerAt = (qId, idx) => {
-  const arr = openAnswers.value[qId] || []
-  openAnswers.value = {
-    ...openAnswers.value,
-    [qId]: arr.filter((_, i) => i !== idx)
-  }
-}
-
-watch(currentIndex, () => {
-  newOpenAnswer.value = ''
-})
 
 // Собираем ответы студента в формат, который ждёт бэк.
 const buildAnswersPayload = () =>
   quiz.value.questions.map((q) => {
     if (q.type === 'open') {
-      const chips = openAnswers.value[q.id] || []
-      // Берём первую непустую введённую запись.
-      const text = chips.find((t) => t && t.trim()) || ''
-      return { question_id: q.id, text_answer: text }
+      return { question_id: q.id, text_answer: (openAnswers.value[q.id] || '').trim() }
     }
     return {
       question_id: q.id,
@@ -123,10 +103,12 @@ const buildAnswersPayload = () =>
   })
 
 const isSubmitting = ref(false)
+const submitError = ref('')
 
 async function submitAttempt() {
   if (isSubmitting.value || !attemptId.value) return
   isSubmitting.value = true
+  submitError.value = ''
   try {
     const data = await apiFetch(`/api/student/attempts/${attemptId.value}/submit`, {
       method: 'POST',
@@ -158,10 +140,18 @@ async function submitAttempt() {
     showResultModal.value = true
     if (timerId) clearInterval(timerId)
   } catch (err) {
-    // Если бэк сказал "Время вышло" — всё равно показываем модалку с 0.
-    resultScore.value = '0/100'
-    showResultModal.value = true
     console.error('Submit failed:', err)
+    // "Время вышло" — это не ошибка отправки, а валидное состояние от бэка:
+    // попытка зафиксирована с нулём, показываем результат как обычно.
+    if (err.message === 'Время вышло') {
+      resultScore.value = '0/100'
+      canShowAnswers.value = false
+      showResultModal.value = true
+      if (timerId) clearInterval(timerId)
+    } else {
+      // Сетевые/серверные ошибки — даём студенту шанс попробовать ещё раз.
+      submitError.value = err.message || 'Не удалось отправить ответы'
+    }
   } finally {
     isSubmitting.value = false
   }
@@ -300,22 +290,14 @@ onUnmounted(() => {
                 class="take-quiz__open-chip take-quiz__open-chip--static"
               >{{ a }}</span>
             </template>
-            <template v-else>
-              <span
-                v-for="(a, i) in openAnswers[currentQuestion.id] || []"
-                :key="i"
-                class="take-quiz__open-chip"
-                @click="removeOpenAnswerAt(currentQuestion.id, i)"
-              >{{ a }}</span>
-              <input
-                v-model="newOpenAnswer"
-                type="text"
-                class="take-quiz__open-chip take-quiz__open-chip--input"
-                placeholder="Ответ"
-                @keydown.enter.prevent="confirmOpenAnswer"
-                @blur="confirmOpenAnswer"
-              />
-            </template>
+            <input
+              v-else
+              :value="openAnswers[currentQuestion.id] || ''"
+              type="text"
+              class="take-quiz__open-chip take-quiz__open-chip--input"
+              placeholder="Ответ"
+              @input="setOpenAnswer(currentQuestion.id, $event.target.value)"
+            />
           </div>
         </div>
 
@@ -351,10 +333,19 @@ onUnmounted(() => {
           </button>
         </div>
 
-        <button type="button" class="btn btn-lg take-quiz__next" @click="next">
-          {{ currentIndex === quiz.questions.length - 1
-            ? (isReviewMode ? 'Вернуться на главную' : 'Завершить тест')
-            : 'Далее' }}
+        <p v-if="submitError" class="take-quiz__submit-error">{{ submitError }}</p>
+
+        <button
+          type="button"
+          class="btn btn-lg take-quiz__next"
+          :disabled="isSubmitting"
+          @click="next"
+        >
+          {{ isSubmitting
+            ? 'Отправка…'
+            : (currentIndex === quiz.questions.length - 1
+              ? (isReviewMode ? 'Вернуться на главную' : (submitError ? 'Попробовать снова' : 'Завершить тест'))
+              : 'Далее') }}
         </button>
       </div>
     </section>
@@ -365,6 +356,7 @@ onUnmounted(() => {
       v-if="showResultModal"
       :score="resultScore"
       :show-answers="canShowAnswers"
+      :passing-score="quiz.passing_score || 50"
       @close="showResultModal = false"
       @home="onResultHome"
       @review="onResultReview"
@@ -563,6 +555,13 @@ onUnmounted(() => {
 
 .take-quiz__next {
   margin-top: 28px;
+}
+
+.take-quiz__submit-error {
+  margin-top: 24px;
+  font-size: var(--font-size-body);
+  color: var(--color-accent2);
+  text-align: center;
 }
 
 /* Открытый ответ */
@@ -773,6 +772,11 @@ onUnmounted(() => {
   .take-quiz__next {
     margin-top: 20px;
     margin-bottom: 20px;
+  }
+
+  .take-quiz__submit-error {
+    margin-top: 16px;
+    font-size: var(--font-size-body-mob);
   }
 
   .take-quiz__open {

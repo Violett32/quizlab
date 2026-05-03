@@ -309,6 +309,32 @@ teacherQuizzesRouter.post('/:id/publish', requireTeacher, async (req, res) => {
   res.status(500).json({ error: 'Failed to generate unique code' });
 });
 
+// POST /api/teacher/quizzes/:id/close — досрочное закрытие активного квиза.
+// Меняет статус 'active' → 'closed'. Применимо только к опубликованным.
+teacherQuizzesRouter.post('/:id/close', requireTeacher, async (req, res) => {
+  const quizId = Number(req.params.id);
+  if (!Number.isFinite(quizId)) {
+    return res.status(400).json({ error: 'Invalid quiz id' });
+  }
+  try {
+    const result = await pool.query(
+      `UPDATE quizzes
+       SET status = 'closed'
+       WHERE id = $1 AND teacher_email = $2 AND status = 'active'
+       RETURNING id, status`,
+      [quizId, req.user.email]
+    );
+    if (result.rowCount === 0) {
+      // Либо чужой/несуществующий, либо уже не active — намеренно не различаем.
+      return res.status(404).json({ error: 'Quiz not found or not active' });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Close quiz failed:', err);
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
 // DELETE /api/teacher/quizzes/:id — удаление квиза и всего связанного.
 // Каскад вручную: схема без ON DELETE, поэтому проходим по таблицам в правильном порядке.
 teacherQuizzesRouter.delete('/:id', requireTeacher, async (req, res) => {

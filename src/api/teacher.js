@@ -62,17 +62,20 @@ export async function loadTeacherResults() {
     const avg = Math.round(sumScores / g.attempts.length)
     // Уникальные студенты — считаем по email.
     const uniqueStudents = new Set(g.attempts.map((a) => a.student_email)).size
+    const passingScore = g.attempts[0]?.quiz_passing_score ?? 50
 
     summaries.push({
       quizId: g.quizId,
       title: g.title,
       avgScore: `${avg}/100`,
+      passingScore,
       people: uniqueStudents,
     })
 
     byQuiz.push({
       quizId: g.quizId,
       quiz: g.title,
+      passingScore,
       students: g.attempts.map((a) => ({
         attemptId: a.id,
         name: a.student_name,

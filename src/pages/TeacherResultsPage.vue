@@ -17,10 +17,10 @@ onMounted(async () => {
   }
 })
 
-const scoreColor = (score) => {
-  const [got, total] = score.split('/').map(Number)
-  if (!total) return 'var(--color-accent1)'
-  return got / total >= 0.5 ? 'var(--color-accent1)' : 'var(--color-accent2)'
+const scoreColor = (score, passing) => {
+  const got = Number(String(score).split('/')[0])
+  if (!Number.isFinite(got)) return 'var(--color-accent1)'
+  return got >= (passing ?? 50) ? 'var(--color-accent1)' : 'var(--color-accent2)'
 }
 
 const goBack = () => {
@@ -48,7 +48,7 @@ const goBack = () => {
           >
             <span class="student-row__name">{{ s.name }}</span>
             <span class="student-row__isu">{{ s.isu }}</span>
-            <span class="student-row__score" :style="{ color: scoreColor(s.score) }">{{ s.score }}</span>
+            <span class="student-row__score" :style="{ color: scoreColor(s.score, q.passingScore) }">{{ s.score }}</span>
           </div>
         </div>
       </div>

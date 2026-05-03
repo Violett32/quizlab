@@ -13,6 +13,7 @@ teacherRouter.get('/results', requireTeacher, async (req, res) => {
       `SELECT a.id, a.score, a.started_at, a.finished_at,
               q.id            AS quiz_id,
               q.title         AS quiz_title,
+              q.passing_score AS quiz_passing_score,
               u.email         AS student_email,
               u.name          AS student_name,
               u.isu           AS student_isu

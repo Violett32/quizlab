@@ -56,6 +56,7 @@ const goBack = () => {
         :title="r.title"
         :duration="r.duration"
         :score="r.score"
+        :passing-score="r.passingScore"
         :truncate="false"
         :action-label="r.actionLabel"
         :action-disabled="r.actionDisabled"

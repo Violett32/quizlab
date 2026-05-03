@@ -1,7 +1,8 @@
 <script setup>
+import { computed } from 'vue'
 import BaseModal from './BaseModal.vue'
 
-defineProps({
+const props = defineProps({
   score: {
     type: [String, Number],
     default: '80/100'
@@ -10,17 +11,28 @@ defineProps({
   showAnswers: {
     type: Boolean,
     default: false
+  },
+  // Проходной балл квиза (0-100). Балл выше = зелёный, ниже = красный.
+  passingScore: {
+    type: Number,
+    default: 50
   }
 })
 
 const emit = defineEmits(['close', 'home', 'review'])
+
+const scoreColor = computed(() => {
+  const got = Number(String(props.score).split('/')[0])
+  if (!Number.isFinite(got)) return 'var(--color-accent1)'
+  return got >= props.passingScore ? 'var(--color-accent1)' : 'var(--color-accent2)'
+})
 </script>
 
 <template>
   <BaseModal :dismissable="false" @close="emit('close')">
     <div class="result">
       <h2 class="result__title">Результат</h2>
-      <p class="result__score">{{ score }}</p>
+      <p class="result__score" :style="{ color: scoreColor }">{{ score }}</p>
 
       <div class="result__actions">
         <button type="button" class="btn btn-lg result__action" @click="emit('home')">Перейти на главную</button>
@@ -47,7 +59,6 @@ const emit = defineEmits(['close', 'home', 'review'])
 .result__score {
   font-size: var(--font-size-h1);
   font-weight: 400;
-  color: var(--color-accent1);
   margin: 0 0 32px;
 }
 

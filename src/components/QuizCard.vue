@@ -11,7 +11,7 @@ const props = defineProps({
   code: { type: String, default: '' }
 })
 
-const emit = defineEmits(['start', 'results', 'edit', 'publish', 'delete'])
+const emit = defineEmits(['start', 'results', 'edit', 'publish', 'delete', 'close'])
 
 const copied = ref(false)
 let resetTimer
@@ -54,7 +54,7 @@ const copyCode = () => {
     <div class="quiz-card__actions">
       <template v-if="mode === 'teacher'">
         <button
-          v-if="code"
+          v-if="status === 'open' && code"
           type="button"
           class="btn btn-sm quiz-card__btn quiz-card__btn--code"
           @click.stop="copyCode"
@@ -80,9 +80,9 @@ const copyCode = () => {
         <button
           v-else-if="status === 'open'"
           type="button"
-          class="btn btn-sm quiz-card__btn quiz-card__btn--closed"
-          disabled
-        >Тест опубликован</button>
+          class="btn btn-sm quiz-card__btn"
+          @click.stop="emit('close')"
+        >Закрыть квиз</button>
       </template>
       <template v-else>
         <button

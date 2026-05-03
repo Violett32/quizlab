@@ -154,7 +154,7 @@ const switchToLogin = () => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding-top: 160px; /* отступ под хедер */
+  padding-top: 70px; /* отступ под хедер */
 }
 
 .hero__title {

@@ -9,15 +9,17 @@ const props = defineProps({
   people: { type: [String, Number], default: '' },
   truncate: { type: Boolean, default: true },
   actionLabel: { type: String, default: '' },
-  actionDisabled: { type: Boolean, default: false }
+  actionDisabled: { type: Boolean, default: false },
+  // Проходной балл квиза. Балл выше = зелёный, ниже = красный.
+  passingScore: { type: Number, default: 50 }
 })
 
 const emit = defineEmits(['action'])
 
 const scoreColor = computed(() => {
-  const [got, total] = props.score.split('/').map(Number)
-  if (!total) return 'var(--color-accent1)'
-  return got / total >= 0.5 ? 'var(--color-accent1)' : 'var(--color-accent2)'
+  const got = Number(props.score.split('/')[0])
+  if (!Number.isFinite(got)) return 'var(--color-accent1)'
+  return got >= props.passingScore ? 'var(--color-accent1)' : 'var(--color-accent2)'
 })
 
 const displayTitle = computed(() => {

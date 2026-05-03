@@ -6,6 +6,7 @@ import QuizCard from '@/components/QuizCard.vue'
 import PublishModal from '@/components/PublishModal.vue'
 import QuestionTypeModal from '@/components/QuestionTypeModal.vue'
 import DeleteQuizModal from '@/components/DeleteQuizModal.vue'
+import CloseQuizModal from '@/components/CloseQuizModal.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { useAuth } from '@/composables/useAuth.js'
 import { loadTeacherQuizzes, loadTeacherResults } from '@/api/teacher.js'
@@ -53,6 +54,36 @@ const confirmDelete = async () => {
     deleteError.value = err.message || 'Не удалось удалить квиз'
   } finally {
     isDeleteLoading.value = false
+  }
+}
+
+// Состояние закрытия (досрочное закрытие активного квиза).
+const closingId = ref(null)
+const isCloseLoading = ref(false)
+const closeError = ref('')
+
+const startClose = (id) => {
+  closingId.value = id
+  closeError.value = ''
+}
+
+const cancelClose = () => {
+  closingId.value = null
+  closeError.value = ''
+}
+
+const confirmClose = async () => {
+  if (!closingId.value) return
+  isCloseLoading.value = true
+  closeError.value = ''
+  try {
+    await apiFetch(`/api/teacher/quizzes/${closingId.value}/close`, { method: 'POST' })
+    closingId.value = null
+    quizzes.value = await loadTeacherQuizzes()
+  } catch (err) {
+    closeError.value = err.message || 'Не удалось закрыть квиз'
+  } finally {
+    isCloseLoading.value = false
   }
 }
 
@@ -178,6 +209,7 @@ const onQuestionTypeSelect = (type) => {
               :key="r.quizId"
               :title="r.title"
               :score="r.avgScore"
+              :passing-score="r.passingScore"
               :people="r.people"
               class="column__result-link"
               @click="router.push('/teacher/results')"
@@ -208,6 +240,7 @@ const onQuestionTypeSelect = (type) => {
               @publish="startPublish(q.id)"
               @edit="router.push(`/create?edit=${q.id}`)"
               @delete="startDelete(q.id)"
+              @close="startClose(q.id)"
             />
           </div>
           <button type="button" class="btn btn-lg column__more" @click="router.push('/teacher/quizzes')">Посмотреть все</button>
@@ -233,6 +266,15 @@ const onQuestionTypeSelect = (type) => {
       @close="cancelDelete"
       @home="cancelDelete"
       @confirm="confirmDelete"
+    />
+
+    <CloseQuizModal
+      v-if="closingId"
+      :is-loading="isCloseLoading"
+      :error="closeError"
+      @close="cancelClose"
+      @home="cancelClose"
+      @confirm="confirmClose"
     />
   </div>
 </template>
@@ -271,6 +313,8 @@ const onQuestionTypeSelect = (type) => {
 
 .profile-hero__bg {
   width: 100%;
+  height: 580px;
+  object-fit: cover;
   display: block;
 }
 

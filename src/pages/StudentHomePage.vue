@@ -153,6 +153,7 @@ const logout = () => {
               :title="r.title"
               :duration="r.duration"
               :score="r.score"
+              :passing-score="r.passingScore"
               class="column__result-link"
               @click="router.push('/results')"
             />
@@ -280,6 +281,8 @@ const logout = () => {
 
 .profile-hero__bg {
   width: 100%;
+  height: 580px;
+  object-fit: cover;
   display: block;
 }
 

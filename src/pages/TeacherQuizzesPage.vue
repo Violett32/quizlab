@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import QuizCard from '@/components/QuizCard.vue'
 import PublishModal from '@/components/PublishModal.vue'
 import DeleteQuizModal from '@/components/DeleteQuizModal.vue'
+import CloseQuizModal from '@/components/CloseQuizModal.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { loadTeacherQuizzes } from '@/api/teacher.js'
 import { apiFetch } from '@/api/client.js'
@@ -79,6 +80,36 @@ const confirmDelete = async () => {
   }
 }
 
+// Состояние закрытия (досрочное закрытие активного квиза).
+const closingId = ref(null)
+const isCloseLoading = ref(false)
+const closeError = ref('')
+
+const startClose = (id) => {
+  closingId.value = id
+  closeError.value = ''
+}
+
+const cancelClose = () => {
+  closingId.value = null
+  closeError.value = ''
+}
+
+const confirmClose = async () => {
+  if (!closingId.value) return
+  isCloseLoading.value = true
+  closeError.value = ''
+  try {
+    await apiFetch(`/api/teacher/quizzes/${closingId.value}/close`, { method: 'POST' })
+    closingId.value = null
+    quizzes.value = await loadTeacherQuizzes()
+  } catch (err) {
+    closeError.value = err.message || 'Не удалось закрыть квиз'
+  } finally {
+    isCloseLoading.value = false
+  }
+}
+
 const goBack = () => {
   router.back()
 }
@@ -107,6 +138,7 @@ const goBack = () => {
         @publish="startPublish(q.id)"
         @edit="router.push(`/create?edit=${q.id}`)"
         @delete="startDelete(q.id)"
+        @close="startClose(q.id)"
       />
     </div>
     <EmptyState v-else text="У вас пока нет квизов" />
@@ -127,6 +159,15 @@ const goBack = () => {
       @close="cancelDelete"
       @home="cancelDelete"
       @confirm="confirmDelete"
+    />
+
+    <CloseQuizModal
+      v-if="closingId"
+      :is-loading="isCloseLoading"
+      :error="closeError"
+      @close="cancelClose"
+      @home="cancelClose"
+      @confirm="confirmClose"
     />
   </div>
 </template>

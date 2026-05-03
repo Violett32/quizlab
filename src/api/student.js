@@ -46,6 +46,7 @@ export async function loadStudentAttempts() {
       title: a.quiz_title,
       duration: formatAttemptDuration(a.started_at, a.finished_at),
       score: `${a.score ?? 0}/100`,
+      passingScore: a.quiz_passing_score ?? 50,
       actionLabel: closed ? 'Тест закрыт' : 'Пройти заново',
       actionDisabled: closed,
     }
