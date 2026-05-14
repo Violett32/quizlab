@@ -40,7 +40,8 @@ jobs:
         run: |
           ssh -i ~/.ssh/deploy_key ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} '
             cd ~/quizlab &&
-            git pull --rebase &&
+            git fetch origin &&
+            git reset --hard origin/main &&
             cd server &&
             npm ci --omit=dev &&
             sudo systemctl restart quizlab
