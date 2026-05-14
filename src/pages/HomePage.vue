@@ -102,7 +102,7 @@ const switchToLogin = () => {
             <img src="@/assets/images/filler3.png" alt="Смотрите результаты">
           </div>
           <h3 class="feature-card__title">Смотрите результаты</h3>
-          <p class="feature-card__text">Баллы, время прохождения — всё в одном месте</p>
+          <p class="feature-card__text">Баллы, время прохождения —<br>всё в одном месте</p>
         </div>
       </div>
     </div>
