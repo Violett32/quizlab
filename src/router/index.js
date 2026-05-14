@@ -10,6 +10,7 @@ import TeacherResultsPage from '../pages/TeacherResultsPage.vue'
 import TeacherQuizzesPage from '../pages/TeacherQuizzesPage.vue'
 import CreateQuizPage from '../pages/CreateQuizPage.vue'
 import TakeQuizPage from '../pages/TakeQuizPage.vue'
+import AdminPage from '../pages/AdminPage.vue'
 
 const routes = [
   {
@@ -70,6 +71,12 @@ const routes = [
     name: 'take-quiz',
     component: TakeQuizPage,
     meta: { role: 'student' }
+  },
+  {
+    path: '/admin',
+    name: 'admin',
+    component: AdminPage,
+    meta: { role: 'admin', hideChrome: true }
   }
 ]
 
@@ -100,7 +107,8 @@ router.beforeEach(async (to) => {
 
   if (user.value.role !== requiredRole) {
     // Залогинен, но роль не та — отправляем на его собственную домашнюю.
-    return { path: user.value.role === 'teacher' ? '/teacher' : '/student' }
+    const home = { admin: '/admin', teacher: '/teacher', student: '/student' }
+    return { path: home[user.value.role] || '/' }
   }
 
   return true

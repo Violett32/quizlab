@@ -31,7 +31,8 @@ async function submit() {
   try {
     const user = await login({ email: email.value, password: password.value })
     emit('close')
-    router.push(user.role === 'teacher' ? '/teacher' : '/student')
+    const home = { admin: '/admin', teacher: '/teacher', student: '/student' }
+    router.push(home[user.role] || '/')
   } catch (err) {
     error.value = err.message || 'Не удалось войти'
   } finally {

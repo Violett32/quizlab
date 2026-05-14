@@ -19,7 +19,6 @@ function signToken(user) {
 
 // Лимит на аватар (исходный размер до base64).
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024; // 2 МБ
-
 // Превращает строку аватара из БД в data: URL для <img :src>.
 // Возвращает null, если аватара нет.
 function buildAvatarDataUrl(data, mime) {
@@ -58,6 +57,16 @@ export function requireStudent(req, res, next) {
   requireAuth(req, res, () => {
     if (req.user.role !== 'student') {
       return res.status(403).json({ error: 'Student role required' });
+    }
+    next();
+  });
+}
+
+// Поверх requireAuth: пропускает только администраторов.
+export function requireAdmin(req, res, next) {
+  requireAuth(req, res, () => {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin role required' });
     }
     next();
   });
@@ -104,7 +113,7 @@ authRouter.post('/login', async (req, res) => {
 
   try {
     const result = await pool.query(
-      'SELECT email, password, isu, name, role, avatar_data, avatar_mime FROM users WHERE email = $1',
+      'SELECT email, password, isu, name, role, avatar_data, avatar_mime, is_blocked FROM users WHERE email = $1',
       [email]
     );
     const row = result.rows[0];
@@ -115,6 +124,10 @@ authRouter.post('/login', async (req, res) => {
     const ok = await bcrypt.compare(password, row.password);
     if (!ok) {
       return res.status(401).json({ error: 'Неверный логин или пароль' });
+    }
+
+    if (row.is_blocked) {
+      return res.status(403).json({ error: 'Аккаунт заблокирован' });
     }
 
     // не отдаём хэш пароля наружу
@@ -136,12 +149,15 @@ authRouter.post('/login', async (req, res) => {
 authRouter.get('/me', requireAuth, async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT email, isu, name, role, avatar_data, avatar_mime FROM users WHERE email = $1',
+      'SELECT email, isu, name, role, avatar_data, avatar_mime, is_blocked FROM users WHERE email = $1',
       [req.user.email]
     );
     const row = result.rows[0];
     if (!row) {
       return res.status(404).json({ error: 'User not found' });
+    }
+    if (row.is_blocked) {
+      return res.status(403).json({ error: 'Аккаунт заблокирован' });
     }
     const user = {
       email: row.email,

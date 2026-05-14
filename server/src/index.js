@@ -5,6 +5,7 @@ import { teacherQuizzesRouter } from './quizzes.js';
 import { teacherRouter } from './teacher.js';
 import { studentRouter } from './student.js';
 import { filesRouter } from './files.js';
+import { adminRouter } from './admin.js';
 
 const app = express();
 // Поднимаем лимит до 20 МБ: файлы вопросов приходят base64 в JSON,
@@ -25,6 +26,9 @@ app.use('/api/student', studentRouter);
 
 // Файлы вопросов (общая ручка для учителя и студента).
 app.use('/api/files', filesRouter);
+
+// Роуты администратора.
+app.use('/api/admin', adminRouter);
 
 // Проверка здоровья: пингуем базу и отвечаем, всё ли ок.
 app.get('/api/health', async (req, res) => {
