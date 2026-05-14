@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth.js'
+import ConfirmModal from '@/components/ConfirmModal.vue'
 import {
   loadAdminUsers,
   loadAdminQuizzes,
@@ -20,6 +21,12 @@ const quizzes = ref([])
 const attempts = ref([])
 const error = ref('')
 
+// Запрошенное действие, ожидающее подтверждения в модалке.
+// Каждый объект описывает: что показывать (title/subtitle/confirmLabel/loadingLabel) и что вызвать при подтверждении.
+const pendingAction = ref(null)
+const isActionLoading = ref(false)
+const actionError = ref('')
+
 const refresh = async () => {
   try {
     const [u, q, a] = await Promise.all([
@@ -37,33 +44,61 @@ const refresh = async () => {
 
 onMounted(refresh)
 
-const onToggleBlock = async (u) => {
-  try {
-    if (u.isBlocked) await unblockUser(u.email)
-    else await blockUser(u.email)
-    await refresh()
-  } catch (err) {
-    error.value = err.message || 'Не удалось изменить статус'
+const askDeleteQuiz = (id) => {
+  pendingAction.value = {
+    title: 'Удалить квиз',
+    subtitle: 'Действительно ли вы хотите удалить квиз?',
+    confirmLabel: 'Удалить',
+    loadingLabel: 'Удаляем…',
+    run: () => deleteAdminQuiz(id),
   }
 }
 
-const onDeleteQuiz = async (id) => {
-  if (!confirm('Удалить квиз вместе со всеми попытками?')) return
-  try {
-    await deleteAdminQuiz(id)
-    await refresh()
-  } catch (err) {
-    error.value = err.message || 'Не удалось удалить квиз'
+const askDeleteAttempt = (id) => {
+  pendingAction.value = {
+    title: 'Удалить результат',
+    subtitle: 'Действительно ли вы хотите удалить результат прохождения?',
+    confirmLabel: 'Удалить',
+    loadingLabel: 'Удаляем…',
+    run: () => deleteAdminAttempt(id),
   }
 }
 
-const onDeleteAttempt = async (id) => {
-  if (!confirm('Удалить попытку прохождения?')) return
+const askToggleBlock = (u) => {
+  pendingAction.value = u.isBlocked
+    ? {
+        title: 'Разблокировать пользователя',
+        subtitle: 'Действительно ли вы хотите разблокировать этого пользователя?',
+        confirmLabel: 'Разблокировать',
+        loadingLabel: 'Разблокируем…',
+        run: () => unblockUser(u.email),
+      }
+    : {
+        title: 'Заблокировать пользователя',
+        subtitle: 'Действительно ли вы хотите заблокировать этого пользователя?',
+        confirmLabel: 'Заблокировать',
+        loadingLabel: 'Блокируем…',
+        run: () => blockUser(u.email),
+      }
+}
+
+const cancelAction = () => {
+  pendingAction.value = null
+  actionError.value = ''
+}
+
+const confirmAction = async () => {
+  if (!pendingAction.value) return
+  isActionLoading.value = true
+  actionError.value = ''
   try {
-    await deleteAdminAttempt(id)
+    await pendingAction.value.run()
+    pendingAction.value = null
     await refresh()
   } catch (err) {
-    error.value = err.message || 'Не удалось удалить попытку'
+    actionError.value = err.message || 'Не удалось выполнить действие'
+  } finally {
+    isActionLoading.value = false
   }
 }
 
@@ -111,7 +146,7 @@ const logout = () => {
                   v-if="u.role !== 'admin'"
                   type="button"
                   class="btn btn-sm admin__btn"
-                  @click="onToggleBlock(u)"
+                  @click="askToggleBlock(u)"
                 >{{ u.isBlocked ? 'Разблокировать' : 'Заблокировать' }}</button>
               </td>
             </tr>
@@ -142,7 +177,7 @@ const logout = () => {
               <td>{{ q.questionCount }}</td>
               <td>{{ q.attemptCount }}</td>
               <td>
-                <button type="button" class="btn btn-sm admin__btn admin__btn--danger" @click="onDeleteQuiz(q.id)">Удалить</button>
+                <button type="button" class="btn btn-sm admin__btn admin__btn--danger" @click="askDeleteQuiz(q.id)">Удалить</button>
               </td>
             </tr>
           </tbody>
@@ -174,13 +209,26 @@ const logout = () => {
               <td>{{ a.duration }}</td>
               <td>{{ a.startedAt }}</td>
               <td>
-                <button type="button" class="btn btn-sm admin__btn admin__btn--danger" @click="onDeleteAttempt(a.id)">Удалить</button>
+                <button type="button" class="btn btn-sm admin__btn admin__btn--danger" @click="askDeleteAttempt(a.id)">Удалить</button>
               </td>
             </tr>
           </tbody>
         </table>
       </div>
     </section>
+
+    <ConfirmModal
+      v-if="pendingAction"
+      :title="pendingAction.title"
+      :subtitle="pendingAction.subtitle"
+      :confirm-label="pendingAction.confirmLabel"
+      :loading-label="pendingAction.loadingLabel"
+      :is-loading="isActionLoading"
+      :error="actionError"
+      @close="cancelAction"
+      @home="cancelAction"
+      @confirm="confirmAction"
+    />
   </div>
 </template>
 
