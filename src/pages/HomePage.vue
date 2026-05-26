@@ -47,7 +47,7 @@ const switchToLogin = () => {
       <img src="@/assets/images/hero-bg.png" alt="" class="hero__bg-img">
     </div>
     <div class="hero__content">
-      <h1 class="hero__title">Создавайте квизы<br class="hero__title-br-mob">за минуту — проверяйте<br>знания мгновенно!</h1>
+      <h1 class="hero__title">Создавайте квизы <br class="hero__title-br-mob">за минуту — проверяйте<br>знания мгновенно!</h1>
       <div class="stats">
         <div class="stats__item">
           <span class="stats__number">3</span>
@@ -127,6 +127,8 @@ const switchToLogin = () => {
   overflow: hidden;
   border-radius: 0 0 24px 24px;
   padding-top: 100px;
+  /* Фон под padding-top, чтобы не было белой полосы между хедером и hero-картинкой. */
+  background: var(--color-primary-dark);
 }
 
 .hero__bg {

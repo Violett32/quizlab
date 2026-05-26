@@ -118,7 +118,8 @@ watch(() => route.fullPath, closeMenu)
   display: flex;
   align-items: center;
   padding-left: 52px;
-  max-width: none;
+  max-width: 1600px;
+  margin: 0 auto;
 }
 
 .logo img {

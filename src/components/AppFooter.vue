@@ -48,6 +48,8 @@ defineProps({
   align-items: flex-start;
   gap: 48px;
   padding: 0 52px;
+  max-width: 1600px;
+  margin: 0 auto;
 }
 
 .footer__logo img {

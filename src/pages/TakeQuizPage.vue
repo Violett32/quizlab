@@ -22,18 +22,26 @@ function formatBytes(n) {
   return `${n} Б`
 }
 
-// Открыть файл вопроса в новой вкладке. fetch с токеном → blob → URL.createObjectURL,
-// потому что <a href> не передаёт Authorization-заголовок.
+// Скачать файл вопроса. fetch с токеном → blob → программный клик по <a download>,
+// потому что <a href> не передаёт Authorization-заголовок, а открытие в новой вкладке
+// на мобильных браузерах выгружает страницу теста из памяти, обрывая прохождение.
 async function openQuestionFile() {
-  const url = currentQuestion.value?.file?.url
-  if (!url) return
+  const file = currentQuestion.value?.file
+  if (!file?.url) return
   try {
-    const res = await fetch(url, {
+    const res = await fetch(file.url, {
       headers: { Authorization: `Bearer ${localStorage.getItem('quizlab_token')}` },
     })
     if (!res.ok) throw new Error(`Failed to load file: ${res.status}`)
     const blob = await res.blob()
-    window.open(URL.createObjectURL(blob), '_blank')
+    const blobUrl = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = blobUrl
+    a.download = file.name || 'file'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000)
   } catch (err) {
     console.error('Failed to open question file:', err)
   }
