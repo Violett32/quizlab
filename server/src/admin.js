@@ -166,6 +166,80 @@ adminRouter.post('/users/:email/block', requireAdmin, async (req, res) => {
   }
 });
 
+// DELETE /api/admin/users/:email — удалить пользователя со всеми его данными.
+// Если это учитель — удаляются все его квизы (со всеми попытками других студентов в них).
+// Если это студент — удаляются все его попытки прохождения.
+adminRouter.delete('/users/:email', requireAdmin, async (req, res) => {
+  const email = req.params.email;
+  if (email === req.user.email) {
+    return res.status(400).json({ error: 'Нельзя удалить самого себя' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Удаляем всё, связанное с попытками пользователя (как студента) или с квизами пользователя (как учителя).
+    // selected_options зависят от student_answers — чистим в первую очередь.
+    await client.query(
+      `DELETE FROM selected_options
+       WHERE student_answer_id IN (
+         SELECT sa.id FROM student_answers sa
+         JOIN attempts a ON a.id = sa.attempt_id
+         WHERE a.student_email = $1
+            OR a.quiz_id IN (SELECT id FROM quizzes WHERE teacher_email = $1)
+       )`,
+      [email]
+    );
+    await client.query(
+      `DELETE FROM student_answers
+       WHERE attempt_id IN (
+         SELECT id FROM attempts
+         WHERE student_email = $1
+            OR quiz_id IN (SELECT id FROM quizzes WHERE teacher_email = $1)
+       )`,
+      [email]
+    );
+    await client.query(
+      `DELETE FROM attempts
+       WHERE student_email = $1
+          OR quiz_id IN (SELECT id FROM quizzes WHERE teacher_email = $1)`,
+      [email]
+    );
+    await client.query(
+      `DELETE FROM answer_options
+       WHERE question_id IN (
+         SELECT id FROM questions
+         WHERE quiz_id IN (SELECT id FROM quizzes WHERE teacher_email = $1)
+       )`,
+      [email]
+    );
+    await client.query(
+      `DELETE FROM questions
+       WHERE quiz_id IN (SELECT id FROM quizzes WHERE teacher_email = $1)`,
+      [email]
+    );
+    await client.query('DELETE FROM quizzes WHERE teacher_email = $1', [email]);
+
+    const result = await client.query(
+      'DELETE FROM users WHERE email = $1 RETURNING email',
+      [email]
+    );
+    if (result.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'User not found' });
+    }
+    await client.query('COMMIT');
+    res.json({ ok: true });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Admin delete user failed:', err);
+    res.status(500).json({ error: 'Internal error' });
+  } finally {
+    client.release();
+  }
+});
+
 // POST /api/admin/users/:email/unblock — разблокировать пользователя.
 adminRouter.post('/users/:email/unblock', requireAdmin, async (req, res) => {
   try {

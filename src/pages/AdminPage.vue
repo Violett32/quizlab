@@ -11,6 +11,7 @@ import {
   deleteAdminAttempt,
   blockUser,
   unblockUser,
+  deleteUser,
 } from '@/api/admin.js'
 
 const router = useRouter()
@@ -61,6 +62,17 @@ const askDeleteAttempt = (id) => {
     confirmLabel: 'Удалить',
     loadingLabel: 'Удаляем…',
     run: () => deleteAdminAttempt(id),
+  }
+}
+
+const askDeleteUser = (u) => {
+  const who = u.role === 'teacher' ? 'преподавателя' : 'студента'
+  pendingAction.value = {
+    title: 'Удалить пользователя',
+    subtitle: `Действительно ли вы хотите удалить ${who} вместе со всеми его данными?`,
+    confirmLabel: 'Удалить',
+    loadingLabel: 'Удаляем…',
+    run: () => deleteUser(u.email),
   }
 }
 
@@ -142,12 +154,18 @@ const logout = () => {
               <td>{{ u.roleLabel }}</td>
               <td>{{ u.isBlocked ? 'Заблокирован' : 'Активен' }}</td>
               <td>
-                <button
-                  v-if="u.role !== 'admin'"
-                  type="button"
-                  class="btn btn-sm admin__btn"
-                  @click="askToggleBlock(u)"
-                >{{ u.isBlocked ? 'Разблокировать' : 'Заблокировать' }}</button>
+                <div v-if="u.role !== 'admin'" class="admin__row-actions">
+                  <button
+                    type="button"
+                    class="btn btn-sm admin__btn"
+                    @click="askToggleBlock(u)"
+                  >{{ u.isBlocked ? 'Разблокировать' : 'Заблокировать' }}</button>
+                  <button
+                    type="button"
+                    class="btn btn-sm admin__btn admin__btn--danger"
+                    @click="askDeleteUser(u)"
+                  >Удалить</button>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -314,6 +332,12 @@ const logout = () => {
 .admin__btn {
   font-family: var(--font-family-btn);
   font-size: var(--font-size-btn);
+}
+
+.admin__row-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .admin__btn--danger {

@@ -82,3 +82,7 @@ export function blockUser(email) {
 export function unblockUser(email) {
   return apiFetch(`/api/admin/users/${encodeURIComponent(email)}/unblock`, { method: 'POST' })
 }
+
+export function deleteUser(email) {
+  return apiFetch(`/api/admin/users/${encodeURIComponent(email)}`, { method: 'DELETE' })
+}
