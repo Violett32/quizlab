@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import BaseModal from './BaseModal.vue'
+import { copyText } from '@/utils/clipboard.js'
 
 const props = defineProps({
   // Код, полученный от бэка после публикации. Пока null — мы ещё не опубликовали.
@@ -55,9 +56,9 @@ const publish = () => {
   emit('publish', { deadline: iso, show_answers: answerType.value === 'open' })
 }
 
-const copyCode = () => {
+const copyCode = async () => {
   if (!props.shareCode) return
-  navigator.clipboard.writeText(props.shareCode)
+  await copyText(props.shareCode)
   codeCopied.value = true
   clearTimeout(copyResetTimer)
   copyResetTimer = setTimeout(() => { codeCopied.value = false }, 2000)

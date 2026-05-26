@@ -1,5 +1,6 @@
 <script setup>
 import { ref } from 'vue'
+import { copyText } from '@/utils/clipboard.js'
 
 const props = defineProps({
   title: { type: String, required: true },
@@ -16,8 +17,8 @@ const emit = defineEmits(['start', 'results', 'edit', 'publish', 'delete', 'clos
 const copied = ref(false)
 let resetTimer
 
-const copyCode = () => {
-  navigator.clipboard.writeText(props.code)
+const copyCode = async () => {
+  await copyText(props.code)
   copied.value = true
   clearTimeout(resetTimer)
   resetTimer = setTimeout(() => { copied.value = false }, 2000)

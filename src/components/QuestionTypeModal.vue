@@ -76,6 +76,7 @@ const submit = () => {
   transition: background 0.2s ease;
 }
 
+.qtype__option:hover,
 .qtype__option--active {
   background: var(--color-primary-light);
 }
