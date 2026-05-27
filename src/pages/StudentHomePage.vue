@@ -118,7 +118,7 @@ const logout = () => {
 
     <section class="profile-hero">
       <img src="@/assets/images/hero-bg.png" alt="" class="profile-hero__bg">
-      <div class="profile-hero__content">
+      <div v-if="user" class="profile-hero__content">
         <div class="profile__photo" @click="openAvatarPicker" role="button" tabindex="0">
           <img v-if="user.avatar" :src="user.avatar" alt="" class="profile__photo-img">
           <img v-else src="@/assets/icons/add.svg" alt="" class="profile__photo-add">
